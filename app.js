@@ -20,17 +20,31 @@ const ready = !!(
 const db = ready
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
     : null;
+
+const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+
+const SUPABASE_URL = window.LIFEDROP_SUPABASE_URL;
+const SUPABASE_KEY = window.LIFEDROP_SUPABASE_ANON_KEY;
+
 const ready = !!(
-  window.supabase &&
-  URL &&
-  KEY &&
-  URL.startsWith('https://') &&
-  KEY.startsWith('sb_publishable_')
+    window.supabase &&
+    SUPABASE_URL &&
+    SUPABASE_KEY &&
+    SUPABASE_URL.startsWith('https://') &&
+    SUPABASE_KEY.startsWith('sb_publishable_')
 );
 
 const db = ready
-  ? window.supabase.createClient(URL, KEY)
-  : null;
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : null;
+
+let session = null;
+let me = null;
+let page = 'Dashboard';
+let myProfile = null;
+
+const $ = id => document.getElementById(id);
+
 
 let session = null;
 let me = null;
