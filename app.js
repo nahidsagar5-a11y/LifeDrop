@@ -3,6 +3,9 @@
    LIFEDROP - ONLINE BLOOD DONATION SYSTEM
    PART 1: 
 
+
+/* LIFEDROP - PART 1 */
+
 const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
 const SUPABASE_URL = window.LIFEDROP_SUPABASE_URL;
@@ -27,13 +30,6 @@ let myProfile = null;
 
 const $ = id => document.getElementById(id);
 
-
-let session = null;
-let me = null;
-let page = 'Dashboard';
-let myProfile = null;
-
-const $ = id => document.getElementById(id);
 
 const esc = value =>
   String(value ?? '').replace(/[&<>"']/g, c => ({
