@@ -1,8 +1,4 @@
 
-/* LifeDrop Supabase Configuration */
+window.LIFEDROP_SUPABASE_URL = 'https://vsjjaetwhfjigbipjava.supabase.co';
 
-window.LIFEDROP_SUPABASE_URL =
-  'https://vsjjaetwhfjigbipjava.supabase.co';
-
-window.LIFEDROP_SUPABASE_ANON_KEY =
-  'sb_publishable_l6Da-LIjQDaO3HQrfMOn_A_3WVlh_VL';
+window.LIFEDROP_SUPABASE_ANON_KEY = 'আপনার_PUBLISHABLE_KEY';
