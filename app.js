@@ -1,25 +1,7 @@
 
 /* ==========================================
    LIFEDROP - ONLINE BLOOD DONATION SYSTEM
-   PART 1: CONNECTION AND AUTHENTICATION
-========================================== */
-
-const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
-
-const SUPABASE_URL = window.LIFEDROP_SUPABASE_URL;
-const SUPABASE_KEY = window.LIFEDROP_SUPABASE_ANON_KEY;
-
-const ready = !!(
-    window.supabase &&
-    SUPABASE_URL &&
-    SUPABASE_KEY &&
-    SUPABASE_URL.startsWith('https://') &&
-    SUPABASE_KEY.startsWith('sb_publishable_')
-);
-
-const db = ready
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-    : null;
+   PART 1: 
 
 const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
