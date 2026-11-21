@@ -1370,3 +1370,68 @@ if (document.readyState === 'loading') {
 } else {
   startLifeDrop();
 }
+
+/* ==========================================
+   LIFEDROP - MY REQUESTS
+========================================== */
+
+async function myRequests() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>My Blood Requests</h2>
+      <div id="my-request-list">Loading...</div>
+    </section>
+  `;
+
+  const list = $('my-request-list');
+
+  try {
+    const { data, error } = await db
+      .from('blood_requests')
+      .select('*')
+      .eq('requester_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p>You have not submitted any blood requests yet.</p>';
+      return;
+    }
+
+    let html = '';
+
+    for (const request of data) {
+      const { data: matches, error: matchError } = await db
+        .from('matches')
+        .select('status')
+        .eq('request_id', request.id);
+
+      if (matchError) throw matchError;
+
+      const status = matches?.length
+        ? matches.map(match => match.status).join(', ')
+        : 'Pending';
+
+      html += `
+        <div class="panel" style="margin-top:12px">
+          <h3>${esc(request.patient_name || 'Patient')}</h3>
+          <p><b>Blood Group:</b> ${esc(request.blood_group || '')}</p>
+          <p><b>Units:</b> ${esc(request.units ?? '')}</p>
+          <p><b>Needed Date:</b> ${esc(request.needed_date || '')}</p>
+          <p><b>Location:</b> ${esc(request.location || '')}</p>
+          <p><b>Status:</b> ${esc(status.toUpperCase())}</p>
+        </div>
+      `;
+    }
+
+    list.innerHTML = html;
+
+  } catch (error) {
+    console.error('My Requests error:', error);
+    list.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
