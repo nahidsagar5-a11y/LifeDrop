@@ -3,39 +3,39 @@
    LIFEDROP - COMPLETE APP.JS
    HTML + CSS + JavaScript + Supabase
 
-   Admin Features:
-   - Dashboard
-   - Search Blood
-   - Requests & Matches
-   - Donors
+   FEATURES:
+   - Authentication
+   - Admin, User and Donor dashboards
+   - Blood donor search
+   - Send blood requests
+   - Admin donor connection
+   - Connected profiles
+   - Complete donation
    - Notifications
-   - My Profile
+   - Profile management
+   - Donor management
+   - Donation history
 
-   User Features:
-   - Dashboard
-   - Search Blood
-   - My Requests
-   - Connected Profiles
-   - Notifications
-   - My Profile
-
-   Donor Features:
-   - Dashboard
-   - Search Blood
-   - My Donations
-   - Connected Profiles
-   - Notifications
-   - My Profile
+   FIX:
+   - Completed requests excluded from pending count
+   - Unique requests counted once
+   - Dashboard refresh after request and completion
 ========================================================= */
 
 'use strict';
 
 /* -------------------- CONFIGURATION -------------------- */
 
-const groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const groups = [
+  'A+', 'A-', 'B+', 'B-',
+  'AB+', 'AB-', 'O+', 'O-'
+];
 
-const SUPABASE_URL = window.LIFEDROP_SUPABASE_URL || '';
-const SUPABASE_KEY = window.LIFEDROP_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL =
+  window.LIFEDROP_SUPABASE_URL || '';
+
+const SUPABASE_KEY =
+  window.LIFEDROP_SUPABASE_ANON_KEY || '';
 
 const ready = !!(
   window.supabase &&
@@ -44,7 +44,10 @@ const ready = !!(
 );
 
 const db = ready
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  ? window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    )
   : null;
 
 let session = null;
@@ -382,8 +385,6 @@ async function renderPage() {
 
 function bindPage() {
 
-  /* Blood Search */
-
   const searchForm = $('blood-search-form');
 
   if (searchForm) {
@@ -408,19 +409,13 @@ function bindPage() {
     };
   }
 
-  /* Navigation buttons */
-
   document.querySelectorAll('[data-goto]').forEach(button => {
     button.onclick = async () => {
       page = button.dataset.goto;
-
       renderNav();
-
       await renderPage();
     };
   });
-
-  /* Send donor request */
 
   document.querySelectorAll('[data-send-request]').forEach(button => {
     button.onclick = async () => {
@@ -433,8 +428,6 @@ function bindPage() {
     };
   });
 
-  /* Admin connect */
-
   document.querySelectorAll('[data-admin-connect]').forEach(button => {
     button.onclick = async () => {
       await adminConnectMatch(
@@ -443,8 +436,6 @@ function bindPage() {
     };
   });
 
-  /* Complete donation */
-
   document.querySelectorAll('[data-complete-match]').forEach(button => {
     button.onclick = async () => {
       await completeMatch(
@@ -452,8 +443,6 @@ function bindPage() {
       );
     };
   });
-
-  /* Mark notification as read */
 
   document.querySelectorAll('[data-mark-read]').forEach(button => {
     button.onclick = async () => {
@@ -476,13 +465,10 @@ function bindPage() {
 
       } catch (error) {
         button.disabled = false;
-
         showError(error, 'Mark as read error');
       }
     };
   });
-
-  /* Delete own notification */
 
   document.querySelectorAll('[data-delete-notification]').forEach(button => {
     button.onclick = async () => {
@@ -507,13 +493,10 @@ function bindPage() {
 
       } catch (error) {
         button.disabled = false;
-
         showError(error, 'Delete notification error');
       }
     };
   });
-
-  /* Profile update */
 
   const profileForm = $('profile-form');
 
@@ -522,14 +505,12 @@ function bindPage() {
       event.preventDefault();
 
       const form = new FormData(profileForm);
-
       const file = form.get('photo');
 
       try {
         let photo_path = me.photo_path || null;
 
         if (file && file.size) {
-
           if (file.size > 3 * 1024 * 1024) {
             throw new Error('Choose a photo smaller than 3 MB.');
           }
@@ -548,9 +529,7 @@ function bindPage() {
 
           const path = `${me.id}/profile.${extension}`;
 
-          const {
-            error: uploadError
-          } = await db.storage
+          const { error: uploadError } = await db.storage
             .from('profile-photos')
             .upload(path, file, {
               upsert: true,
@@ -563,27 +542,12 @@ function bindPage() {
         }
 
         const update = {
-          full_name: String(
-            form.get('full_name') || ''
-          ).trim(),
-
-          phone: String(
-            form.get('phone') || ''
-          ).trim(),
-
+          full_name: String(form.get('full_name') || '').trim(),
+          phone: String(form.get('phone') || '').trim(),
           blood_group: form.get('blood_group') || null,
-
-          last_donation_date:
-            form.get('last_donation_date') || null,
-
-          location: String(
-            form.get('location') || ''
-          ).trim(),
-
-          medical_condition: String(
-            form.get('medical_condition') || ''
-          ).trim() || null,
-
+          last_donation_date: form.get('last_donation_date') || null,
+          location: String(form.get('location') || '').trim(),
+          medical_condition: String(form.get('medical_condition') || '').trim() || null,
           photo_path
         };
 
@@ -634,6 +598,78 @@ async function countRows(table, filters = []) {
   return count || 0;
 }
 
+/* -------------------- ACTIVE REQUEST COUNT -------------------- */
+
+async function countActiveRequests() {
+  let requestQuery = db
+    .from('blood_requests')
+    .select('id');
+
+  if (me?.role !== 'admin') {
+    requestQuery = requestQuery.eq(
+      'requester_id',
+      session.user.id
+    );
+  }
+
+  const {
+    data: requests,
+    error: requestError
+  } = await requestQuery;
+
+  if (requestError) throw requestError;
+
+  if (!requests?.length) return 0;
+
+  const requestIds = requests.map(item => item.id);
+
+  const {
+    data: matches,
+    error: matchError
+  } = await db
+    .from('matches')
+    .select('request_id, status')
+    .in('request_id', requestIds);
+
+  if (matchError) throw matchError;
+
+  const matchesByRequest = new Map();
+
+  for (const match of matches || []) {
+    if (!matchesByRequest.has(match.request_id)) {
+      matchesByRequest.set(match.request_id, []);
+    }
+
+    matchesByRequest.get(match.request_id).push(match);
+  }
+
+  let activeCount = 0;
+
+  for (const request of requests) {
+    const requestMatches =
+      matchesByRequest.get(request.id) || [];
+
+    // Request without a match is still pending.
+    if (requestMatches.length === 0) {
+      activeCount++;
+      continue;
+    }
+
+    // Count request only if it has at least one
+    // non-completed match.
+    const hasActiveMatch = requestMatches.some(
+      match =>
+        String(match.status || '').toLowerCase() !== 'completed'
+    );
+
+    if (hasActiveMatch) {
+      activeCount++;
+    }
+  }
+
+  return activeCount;
+}
+
 /* -------------------- DASHBOARD -------------------- */
 
 async function getRegisteredDonorCount() {
@@ -653,18 +689,14 @@ async function dashboard() {
     connected,
     unread
   ] = await Promise.all([
-
     getRegisteredDonorCount(),
-
-    countRows('blood_requests'),
-
+    countActiveRequests(),
     countRows('matches', [
       {
         method: 'eq',
         args: ['status', 'connected']
       }
     ]),
-
     countRows('notifications', [
       {
         method: 'eq',
@@ -675,7 +707,6 @@ async function dashboard() {
         args: ['is_read', false]
       }
     ])
-
   ]);
 
   return `
@@ -687,7 +718,7 @@ async function dashboard() {
       </div>
 
       <div class="stat-card">
-        <span>Blood Requests</span>
+        <span>Pending Blood Requests</span>
         <b>${requests}</b>
       </div>
 
@@ -704,6 +735,7 @@ async function dashboard() {
     </div>
 
     <div class="panel">
+
       <h2>Welcome to LifeDrop</h2>
 
       <p class="muted">
@@ -777,11 +809,13 @@ async function searchBlood() {
         </label>
 
         <div class="wide">
+
           <button
             type="submit"
             class="btn primary">
             Search Donors
           </button>
+
         </div>
 
       </form>
@@ -823,7 +857,6 @@ async function runDonorSearch(bloodGroup, location = '') {
           Try another location or blood group.
         </div>
       `;
-
       return;
     }
 
@@ -837,7 +870,6 @@ async function runDonorSearch(bloodGroup, location = '') {
         </p>
 
         <div class="table-wrap">
-
           <table>
 
             <thead>
@@ -858,9 +890,7 @@ async function runDonorSearch(bloodGroup, location = '') {
                   </td>
 
                   <td>
-                    ${esc(
-                      donor.donor_location || 'Not provided'
-                    )}
+                    ${esc(donor.donor_location || 'Not provided')}
                   </td>
 
                   <td>
@@ -868,19 +898,11 @@ async function runDonorSearch(bloodGroup, location = '') {
                     <button
                       type="button"
                       class="btn primary"
-
                       data-send-request="${esc(donor.donor_id)}"
-
                       data-blood-group="${esc(bloodGroup)}"
-
                       data-donor-name="${esc(donor.donor_name)}"
-
-                      data-donor-location="${esc(
-                        donor.donor_location || ''
-                      )}">
-
+                      data-donor-location="${esc(donor.donor_location || '')}">
                       Send Request
-
                     </button>
 
                   </td>
@@ -889,9 +911,7 @@ async function runDonorSearch(bloodGroup, location = '') {
               `).join('')}
 
             </tbody>
-
           </table>
-
         </div>
 
       </div>
@@ -972,14 +992,9 @@ async function sendDonorRequest(
     return toast('Hospital/location is required.');
   }
 
-  const savedPhone =
-    myProfile.contact_phone ||
-    myProfile.phone ||
-    '';
-
   const contactPhone = prompt(
     'Enter your contact phone number:',
-    savedPhone
+    myProfile.phone || ''
   );
 
   if (!contactPhone?.trim()) return;
@@ -1011,12 +1026,8 @@ async function sendDonorRequest(
         `Request sent to ${donorName || 'selected donor'}.`
       );
 
-      page = me?.role === 'admin'
-        ? 'Requests & Matches'
-        : 'My Requests';
-
+      page = 'Dashboard';
       renderNav();
-
       await renderPage();
 
     } else {
@@ -1056,7 +1067,6 @@ async function myRequests() {
   const cards = [];
 
   for (const request of requests) {
-
     const {
       data: matches,
       error: matchError
@@ -1152,7 +1162,6 @@ async function adminRequests() {
   const cards = [];
 
   for (const match of matches) {
-
     const {
       data: request,
       error: requestError
@@ -1163,7 +1172,6 @@ async function adminRequests() {
       .maybeSingle();
 
     if (requestError) throw requestError;
-
     if (!request) continue;
 
     const [
@@ -1186,12 +1194,10 @@ async function adminRequests() {
     ]);
 
     if (donorResult.error) throw donorResult.error;
-
     if (requesterResult.error) throw requesterResult.error;
 
     const donor = donorResult.data;
     const requester = requesterResult.data;
-
     const status = match.status || 'candidate';
 
     cards.push(`
@@ -1336,7 +1342,6 @@ async function connectedProfiles() {
   const cards = [];
 
   for (const match of mine) {
-
     const otherId =
       match.requester_id === session.user.id
         ? match.donor_id
@@ -1370,7 +1375,6 @@ async function connectedProfiles() {
           <p>Connected profile is not available.</p>
         </div>
       `);
-
       continue;
     }
 
@@ -1456,8 +1460,13 @@ async function completeMatch(matchId) {
     if (error) throw error;
 
     toast(
-      'Donation marked complete. Private profile access is now closed.'
+      'Donation marked complete successfully!'
     );
+
+    // Refresh dashboard after successful completion.
+    page = 'Dashboard';
+
+    renderNav();
 
     await renderPage();
 
@@ -1510,13 +1519,11 @@ async function notificationsPage() {
       <div class="panel" style="margin-top:12px">
 
         <h3>
-
           ${esc(item.title || 'LifeDrop Notification')}
 
           <span class="pill">
             ${item.is_read === true ? 'Read' : 'Unread'}
           </span>
-
         </h3>
 
         <p>
@@ -1538,21 +1545,14 @@ async function notificationsPage() {
             type="button"
             data-mark-read="${esc(item.id)}"
             ${item.is_read === true ? 'disabled' : ''}>
-
-            ${item.is_read === true
-              ? 'Already Read'
-              : 'Mark as Read'
-            }
-
+            ${item.is_read === true ? 'Already Read' : 'Mark as Read'}
           </button>
 
           <button
             class="btn danger"
             type="button"
             data-delete-notification="${esc(item.id)}">
-
             Delete
-
           </button>
 
         </div>
@@ -1874,26 +1874,18 @@ async function init() {
 
     db.auth.onAuthStateChange(
       (_event, currentSession) => {
-
         session = currentSession;
 
         window.setTimeout(() => {
-
           if (currentSession) {
-
             boot().catch(error => {
               showError(error, 'Auth state error');
             });
-
           } else {
-
             me = null;
             myProfile = null;
-
             showAuth();
-
           }
-
         }, 0);
       }
     );
@@ -1938,7 +1930,6 @@ function setupEventListeners() {
 
   if ($('nav')) {
     $('nav').addEventListener('click', async event => {
-
       const button = event.target.closest('[data-page]');
 
       if (!button) return;
@@ -1948,7 +1939,6 @@ function setupEventListeners() {
       renderNav();
 
       await renderPage();
-
     });
   }
 
