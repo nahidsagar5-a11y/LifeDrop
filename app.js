@@ -1088,7 +1088,6 @@ if (document.readyState !== 'loading') {
 }
 
 
-/* Compatibility alias: some older page handlers call notifications(). */
-async function notifications() {
-  return notificationsPage();
-}
+/* Global compatibility alias for older navigation / inline handlers. */
+var notifications = notificationsPage;
+window.notifications = notificationsPage;
