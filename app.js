@@ -1,35 +1,40 @@
 
 /* ==========================================
-   LIFEDROP - ONLINE BLOOD DONATION SYSTEM
-   PART 1: 
+   LIFEDROP - PART 1
+   AUTHENTICATION & SUPABASE
+========================================== */
 
-
-/* LIFEDROP - PART 1 */
-
-const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+const groups = [
+  'A+', 'A-', 'B+', 'B-',
+  'AB+', 'AB-', 'O+', 'O-'
+];
 
 const SUPABASE_URL = window.LIFEDROP_SUPABASE_URL;
 const SUPABASE_KEY = window.LIFEDROP_SUPABASE_ANON_KEY;
 
 const ready = !!(
-    window.supabase &&
-    SUPABASE_URL &&
-    SUPABASE_KEY &&
-    SUPABASE_URL.startsWith('https://') &&
-    SUPABASE_KEY.startsWith('sb_publishable_')
+  window.supabase &&
+  SUPABASE_URL &&
+  SUPABASE_KEY &&
+  SUPABASE_URL.startsWith('https://') &&
+  SUPABASE_KEY.startsWith('sb_publishable_')
 );
 
 const db = ready
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-    : null;
+  ? window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    )
+  : null;
 
 let session = null;
 let me = null;
-let page = 'Dashboard';
 let myProfile = null;
+let page = 'Dashboard';
 
 const $ = id => document.getElementById(id);
 
+/* SAFE HTML */
 
 const esc = value =>
   String(value ?? '').replace(/[&<>"']/g, c => ({
@@ -40,6 +45,8 @@ const esc = value =>
     "'": '&#39;'
   }[c]));
 
+/* INITIALS */
+
 const initials = name =>
   (name || '?')
     .trim()
@@ -49,8 +56,11 @@ const initials = name =>
     .join('')
     .toUpperCase();
 
+/* TOAST */
+
 function toast(message) {
   const el = $('toast');
+
   if (!el) {
     alert(message);
     return;
@@ -64,14 +74,14 @@ function toast(message) {
   }, 3200);
 }
 
+/* ERROR */
+
 function fail(error) {
   console.error('LifeDrop Error:', error);
-
-  toast(
-    error?.message ||
-    'Something went wrong. Please try again.'
-  );
+  toast(error?.message || 'Something went wrong.');
 }
+
+/* AUTH TABS */
 
 function authMode(mode) {
   document.querySelectorAll('.tab').forEach(button => {
@@ -92,8 +102,6 @@ function authMode(mode) {
   );
 }
 
-/* LOGIN AND SIGNUP TABS */
-
 document.querySelectorAll('.tab').forEach(button => {
   button.onclick = () => authMode(button.dataset.tab);
 });
@@ -104,7 +112,7 @@ $('login-form').onsubmit = async event => {
   event.preventDefault();
 
   if (!db) {
-    toast('Supabase connection is missing. Check config.js.');
+    toast('Check your Supabase config.js file.');
     return;
   }
 
@@ -125,13 +133,13 @@ $('login-form').onsubmit = async event => {
   }
 };
 
-/* CREATE ACCOUNT */
+/* SIGNUP */
 
 $('signup-form').onsubmit = async event => {
   event.preventDefault();
 
   if (!db) {
-    toast('Supabase connection is missing. Check config.js.');
+    toast('Check your Supabase config.js file.');
     return;
   }
 
@@ -156,7 +164,7 @@ $('signup-form').onsubmit = async event => {
       await boot();
     } else {
       toast(
-        'Account created. Please check your email and confirm your account.'
+        'Account created. Please confirm your email.'
       );
     }
 
@@ -186,7 +194,7 @@ $('logout-btn').onclick = async () => {
   }
 };
 
-/* SHOW LOGIN PAGE */
+/* SHOW LOGIN */
 
 function showAuth() {
   $('app-view').classList.add('hidden');
@@ -194,7 +202,7 @@ function showAuth() {
   $('header-user').textContent = '';
 }
 
-/* LOAD USER PROFILE */
+/* LOAD PROFILE */
 
 async function boot() {
   const {
@@ -221,7 +229,7 @@ async function boot() {
 
   if (!data) {
     throw new Error(
-      'Your profile was not found. Please contact the LifeDrop admin.'
+      'Profile not found. Contact LifeDrop admin.'
     );
   }
 
@@ -231,13 +239,12 @@ async function boot() {
   showApp();
 }
 
-/* INITIALIZE APPLICATION */
+/* INITIALIZE */
 
 async function init() {
   if (!ready) {
     $('auth-view').classList.add('hidden');
     $('config-view').classList.remove('hidden');
-
     return;
   }
 
@@ -257,6 +264,7 @@ async function init() {
         }
       }, 0);
     });
+
   } catch (error) {
     fail(error);
     showAuth();
@@ -264,7 +272,8 @@ async function init() {
 }
 
 /* ==========================================
-   PART 2: DASHBOARD AND NAVIGATION
+   LIFEDROP - PART 2
+   DASHBOARD & SEARCH BLOOD
 ========================================== */
 
 /* AVAILABLE PAGES */
@@ -282,7 +291,7 @@ function pages() {
 
   return [
     'Dashboard',
-    'New Blood Request',
+    'Search Blood',
     'My Requests',
     'Connected Profiles',
     'Notifications',
@@ -291,7 +300,7 @@ function pages() {
   ];
 }
 
-/* SHOW APPLICATION */
+/* SHOW APP */
 
 function showApp() {
   $('auth-view').classList.add('hidden');
@@ -313,6 +322,7 @@ function showApp() {
 function renderNav() {
   $('nav').innerHTML = pages().map(p => `
     <button
+      type="button"
       class="${p === page ? 'active' : ''}"
       data-page="${esc(p)}">
       ${esc(p)}
@@ -328,7 +338,7 @@ function renderNav() {
   });
 }
 
-/* LOAD SELECTED PAGE */
+/* LOAD PAGE */
 
 async function renderPage() {
   const element = $('page-content');
@@ -339,7 +349,7 @@ async function renderPage() {
   try {
     const pageFunctions = {
       'Dashboard': dashboard,
-      'New Blood Request': newRequest,
+      'Search Blood': searchBlood,
       'My Requests': myRequests,
       'Requests & Matches': adminRequests,
       'Donors': adminDonors,
@@ -368,7 +378,7 @@ async function renderPage() {
   }
 }
 
-/* COUNT DATABASE RECORDS */
+/* DATABASE COUNT */
 
 async function count(table, query) {
   let request = db
@@ -394,7 +404,9 @@ async function count(table, query) {
 async function dashboard() {
   const [donors, requests, matches, notes] =
     await Promise.all([
-      count('profiles', q => q.eq('role', 'donor')),
+      count('profiles', q =>
+        q.eq('role', 'donor')
+      ),
 
       count('blood_requests'),
 
@@ -434,41 +446,48 @@ async function dashboard() {
     </div>
 
     <div class="panel">
+
       <h2>Welcome to LifeDrop</h2>
 
       <p class="muted">
         Give blood. Give life.
-        Your account and data are connected to Supabase.
+        Find compatible blood donors easily.
       </p>
 
       <div class="actions">
 
-        <button
-          class="btn primary"
-          data-goto="My Profile">
-          Complete My Profile
-        </button>
-
         ${
-          me.role === 'user'
+          me.role !== 'admin'
           ? `
             <button
-              class="btn outline"
-              data-goto="New Blood Request">
-              Request Blood
+              class="btn primary"
+              data-goto="Search Blood">
+              Search Blood
             </button>
           `
-          : ''
+          : `
+            <button
+              class="btn primary"
+              data-goto="Requests & Matches">
+              Manage Requests
+            </button>
+          `
         }
 
+        <button
+          class="btn outline"
+          data-goto="My Profile">
+          My Profile
+        </button>
+
       </div>
+
     </div>
 
     <div class="note">
-      LifeDrop automatically suggests donors by blood
-      group and location. A qualified medical
-      professional must confirm donor eligibility
-      and blood compatibility.
+      Donor eligibility and blood compatibility
+      must be confirmed by a qualified medical
+      professional before transfusion.
     </div>
   `;
 }
@@ -489,955 +508,865 @@ function groupOptions(selected = '') {
   `;
 }
 
-/* NEW BLOOD REQUEST FORM */
+/* SEARCH BLOOD PAGE */
 
-async function newRequest() {
+async function searchBlood() {
+  if (me.role === 'admin') {
+    return `
+      <div class="panel">
+        <h2>Blood Search</h2>
+        <p>Use the Admin Dashboard to manage donor requests.</p>
+      </div>
+    `;
+  }
+
   return `
     <div class="panel">
 
-      <h2>Submit a Blood Request</h2>
+      <h2>Search Blood Donors</h2>
 
-      <form id="request-form" class="form-grid">
+      <p class="muted">
+        Select the required blood group.
+        Location is optional.
+      </p>
 
-        <label>
-          Patient Name
-          <input
-            name="patient_name"
-            required>
-        </label>
+      <form id="blood-search-form" class="form-grid">
 
         <label>
-          Blood Group Needed
+          Required Blood Group
+
           <select name="blood_group" required>
             ${groupOptions()}
           </select>
         </label>
 
         <label>
-          Units Required
-          <input
-            name="units"
-            type="number"
-            min="1"
-            max="20"
-            value="1"
-            required>
-        </label>
+          Location (Optional)
 
-        <label>
-          Needed Date
-          <input
-            name="needed_date"
-            type="date"
-            min="${new Date().toISOString().slice(0, 10)}"
-            required>
-        </label>
-
-        <label>
-          Hospital / Location
           <input
             name="location"
-            placeholder="Hospital, area, city"
-            required>
-        </label>
-
-        <label>
-          Contact Phone
-          <input
-            name="contact_phone"
-            type="tel"
-            required>
-        </label>
-
-        <label class="wide">
-          Additional Details
-          <textarea
-            name="details"
-            placeholder="Optional details">
-          </textarea>
+            type="text"
+            placeholder="Enter area or city">
         </label>
 
         <div class="wide">
-          <button class="btn primary">
-            Submit Request & Find Donors
-          </button>
-        </div>
-
-      </form>
-    </div>
-  `;
-}
-
-/* ==========================================
-   PART 3: REQUESTS AND ADMIN MATCHING
-========================================== */
-
-/* MY BLOOD REQUESTS */
-
-async function myRequests() {
-  const { data, error } = await db
-    .from('blood_requests')
-    .select('*, matches(id,status,donor_id)')
-    .eq('requester_id', me.id)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-
-  if (!data.length) {
-    return `
-      <div class="panel empty">
-        You have not submitted any blood requests.
-      </div>
-    `;
-  }
-
-  return `
-    <div class="panel">
-
-      <h2>My Blood Requests</h2>
-
-      <div class="table-wrap">
-        <table>
-
-          <tr>
-            <th>Patient</th>
-            <th>Blood</th>
-            <th>Units</th>
-            <th>Needed</th>
-            <th>Location</th>
-            <th>Status</th>
-            <th>Matches</th>
-          </tr>
-
-          ${data.map(request => `
-            <tr>
-              <td>${esc(request.patient_name)}</td>
-              <td>${esc(request.blood_group)}</td>
-              <td>${request.units}</td>
-              <td>${esc(request.needed_date)}</td>
-              <td>${esc(request.location)}</td>
-              <td>${esc(request.status || 'Pending')}</td>
-              <td>
-                ${
-                  (request.matches || [])
-                    .filter(match => match.status === 'connected')
-                    .length
-                    ? 'Connected'
-                    : 'Searching'
-                }
-              </td>
-            </tr>
-          `).join('')}
-
-        </table>
-      </div>
-
-    </div>
-  `;
-}
-
-/* ADMIN: REQUESTS AND MATCHES */
-
-async function adminRequests() {
-  const { data, error } = await db
-    .from('matches')
-    .select(`
-      id,
-      status,
-      created_at,
-      request_id,
-      blood_requests(
-        id,
-        patient_name,
-        blood_group,
-        units,
-        needed_date,
-        location,
-        requester_id
-      ),
-      profiles!matches_donor_id_fkey(
-        id,
-        full_name,
-        email,
-        phone,
-        blood_group,
-        location,
-        photo_path
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-
-  const rows = data.filter(match =>
-    match.status !== 'rejected'
-  );
-
-  if (!rows.length) {
-    return `
-      <div class="panel empty">
-        No automatic matches found yet.
-      </div>
-    `;
-  }
-
-  return `
-    <div class="panel">
-
-      <h2>Automatic Matching Results</h2>
-
-      <p class="muted">
-        Review the suggested donor and connect
-        the donor with the requester.
-      </p>
-
-      <div class="table-wrap">
-        <table>
-
-          <tr>
-            <th>Patient</th>
-            <th>Blood</th>
-            <th>Location</th>
-            <th>Suggested Donor</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-
-          ${rows.map(match => `
-            <tr>
-
-              <td>
-                ${esc(match.blood_requests?.patient_name || '—')}
-                <br>
-                <small>
-                  ${esc(match.blood_requests?.needed_date || '')}
-                </small>
-              </td>
-
-              <td>
-                ${esc(match.blood_requests?.blood_group || '')}
-              </td>
-
-              <td>
-                ${esc(match.blood_requests?.location || '')}
-              </td>
-
-              <td>
-                ${esc(match.profiles?.full_name || '')}
-                <br>
-                <small>
-                  ${esc(match.profiles?.blood_group || '')}
-                  •
-                  ${esc(match.profiles?.location || '')}
-                </small>
-              </td>
-
-              <td>${esc(match.status)}</td>
-
-              <td>
-                ${
-                  match.status === 'candidate'
-                  ? `
-                    <button
-                      class="btn primary"
-                      data-connect="${match.id}">
-                      Connect
-                    </button>
-                  `
-                  : match.status === 'connected'
-                    ? 'Connected'
-                    : '—'
-                }
-              </td>
-
-            </tr>
-          `).join('')}
-
-        </table>
-      </div>
-
-    </div>
-  `;
-}
-
-/* ADMIN: DONOR LIST */
-
-async function adminDonors() {
-  const { data, error } = await db
-    .from('profiles')
-    .select(`
-      id,
-      full_name,
-      email,
-      phone,
-      blood_group,
-      location,
-      photo_path
-    `)
-    .eq('role', 'donor')
-    .order('full_name');
-
-  if (error) throw error;
-
-  return `
-    <div class="panel">
-
-      <h2>Registered Donors</h2>
-
-      ${
-        data.length
-        ? `
-          <div class="table-wrap">
-            <table>
-
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Blood Group</th>
-                <th>Location</th>
-              </tr>
-
-              ${data.map(donor => `
-                <tr>
-                  <td>${esc(donor.full_name)}</td>
-                  <td>${esc(donor.email)}</td>
-                  <td>${esc(donor.phone || '')}</td>
-                  <td>${esc(donor.blood_group || '')}</td>
-                  <td>${esc(donor.location || '')}</td>
-                </tr>
-              `).join('')}
-
-            </table>
-          </div>
-        `
-        : `
-          <div class="empty">
-            No donors registered yet.
-          </div>
-        `
-      }
-
-    </div>
-  `;
-}
-
-/* CONNECTED PROFILES */
-
-async function connectedProfiles() {
-  const { data, error } = await db
-    .from('matches')
-    .select(`
-      id,
-      created_at,
-      requester_id,
-      donor_id,
-      blood_requests(
-        patient_name,
-        blood_group,
-        location,
-        requester_id
-      ),
-      profiles!matches_donor_id_fkey(
-        id,
-        full_name,
-        phone,
-        blood_group,
-        location,
-        photo_path
-      )
-    `)
-    .eq('status', 'connected')
-    .or(`donor_id.eq.${me.id},requester_id.eq.${me.id}`)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-
-  if (!data.length) {
-    return `
-      <div class="panel empty">
-        No connected profiles yet.
-        Admin approval is required first.
-      </div>
-    `;
-  }
-
-  let cards = '';
-
-  for (const match of data) {
-    const isRequester = match.requester_id === me.id;
-
-    let person;
-
-    if (isRequester) {
-      person = match.profiles;
-    } else {
-      const { data: requester, error: profileError } =
-        await db
-          .from('profiles')
-          .select(`
-            id,
-            full_name,
-            phone,
-            blood_group,
-            location,
-            photo_path
-          `)
-          .eq('id', match.requester_id)
-          .single();
-
-      if (profileError) throw profileError;
-
-      person = requester;
-    }
-
-    const photo = await photoUrl(person?.photo_path);
-
-    cards += `
-      <div class="panel">
-
-        <div class="profile">
-
-          <div class="avatar">
-            ${
-              photo
-              ? `<img src="${photo}" alt="Profile photo">`
-              : esc(initials(person?.full_name))
-            }
-          </div>
-
-          <div>
-            <b>${esc(person?.full_name)}</b>
-
-            <p class="muted">
-              ${isRequester ? 'Matched Donor' : 'Blood Requester'}
-              •
-              ${esc(person?.blood_group || 'Not set')}
-            </p>
-          </div>
-
-        </div>
-
-        <p>
-          <b>Phone:</b>
-          ${esc(person?.phone || 'Not shared')}
-        </p>
-
-        <p>
-          <b>Location:</b>
-          ${esc(person?.location || 'Not shared')}
-        </p>
-
-        <p class="muted">
-          Connected after Admin approval.
-        </p>
-
-      </div>
-    `;
-  }
-
-  return `
-    <h2>Connected Profiles</h2>
-
-    <p class="muted">
-      Only approved connected profiles are shown.
-    </p>
-
-    ${cards}
-  `;
-}
-
-/* ==========================================
-   PART 4: NOTIFICATIONS AND USER PROFILE
-========================================== */
-
-/* NOTIFICATIONS */
-
-async function notifications() {
-  const { data, error } = await db
-    .from('notifications')
-    .select('*')
-    .eq('user_id', me.id)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  if (error) throw error;
-
-  return `
-    <div class="panel">
-
-      <h2>Notifications</h2>
-
-      ${
-        data.length
-        ? data.map(notification => `
-          <div style="padding:13px 0;border-bottom:1px solid var(--line)">
-
-            <b>${esc(notification.title)}</b>
-
-            <p class="muted">
-              ${esc(notification.message)}
-            </p>
-
-            <small>
-              ${notification.created_at
-                ? new Date(notification.created_at).toLocaleString()
-                : ''}
-            </small>
-
-            ${
-              !notification.is_read
-              ? `
-                <button
-                  class="btn outline"
-                  data-read="${notification.id}">
-                  Mark Read
-                </button>
-              `
-              : '<span class="muted">Read</span>'
-            }
-
-          </div>
-        `).join('')
-        : `
-          <div class="empty">
-            No notifications yet.
-          </div>
-        `
-      }
-
-    </div>
-  `;
-}
-
-/* PRIVATE PROFILE PHOTO URL */
-
-async function photoUrl(path) {
-  if (!path || !db) return '';
-
-  const { data, error } = await db
-    .storage
-    .from('profile-photos')
-    .createSignedUrl(path, 900);
-
-  if (error) {
-    console.warn('Photo loading error:', error);
-    return '';
-  }
-
-  return data.signedUrl;
-}
-
-/* MY PROFILE */
-
-async function profilePage() {
-  const p = me;
-
-  const photo = await photoUrl(p.photo_path);
-
-  return `
-    <div class="panel">
-
-      <h2>My Profile</h2>
-
-      <div class="profile">
-
-        <div class="avatar">
-          ${
-            photo
-            ? `<img src="${photo}" alt="Profile photo">`
-            : esc(initials(p.full_name))
-          }
-        </div>
-
-        <div>
-          <b>${esc(p.full_name)}</b>
-
-          <p class="muted">
-            ${esc(p.email)} • ${esc(p.role)}
-          </p>
-        </div>
-
-      </div>
-
-      <form id="profile-form" class="form-grid">
-
-        <label>
-          Full Name
-          <input
-            name="full_name"
-            value="${esc(p.full_name)}"
-            required>
-        </label>
-
-        <label>
-          Phone Number
-          <input
-            name="phone"
-            type="tel"
-            value="${esc(p.phone || '')}">
-        </label>
-
-        <label>
-          Blood Group
-          <select name="blood_group">
-            ${groupOptions(p.blood_group || '')}
-          </select>
-        </label>
-
-        <label>
-          Last Donation Date
-          <input
-            name="last_donation_date"
-            type="date"
-            max="${new Date().toISOString().slice(0,10)}"
-            value="${esc(p.last_donation_date || '')}">
-        </label>
-
-        <label class="wide">
-          Location / Address
-          <input
-            name="location"
-            value="${esc(p.location || '')}">
-        </label>
-
-        <label class="wide">
-          Profile Photo
-          <input
-            name="photo"
-            type="file"
-            accept="image/png,image/jpeg,image/webp">
-        </label>
-
-        <div class="wide">
-          <button class="btn primary">
-            Save Profile
+          <button
+            type="submit"
+            class="btn primary">
+            Search Donors
           </button>
         </div>
 
       </form>
 
-      <p class="note">
-        Your photo is stored in the private Supabase
-        Storage bucket. Connected users can view
-        permitted profile information.
-      </p>
-
     </div>
+
+    <div id="donor-search-results"></div>
   `;
 }
 
-/* MY DONATION HISTORY */
+/* RUN DONOR SEARCH */
 
-async function donationsPage() {
-  const { data, error } = await db
-    .from('donations')
-    .select('*')
-    .eq('donor_id', me.id)
-    .order('donation_date', { ascending: false });
+async function runDonorSearch(bloodGroup, location = '') {
+  const results = $('donor-search-results');
 
-  if (error) throw error;
+  if (!results) return;
 
-  return `
-    <div class="panel">
-
-      <h2>My Donation History</h2>
-
-      <form id="donation-form" class="form-grid">
-
-        <label>
-          Donation Date
-          <input
-            name="donation_date"
-            type="date"
-            max="${new Date().toISOString().slice(0,10)}"
-            required>
-        </label>
-
-        <label>
-          Hospital / Centre
-          <input name="place" required>
-        </label>
-
-        <div class="wide">
-          <button class="btn primary">
-            Add Donation Record
-          </button>
-        </div>
-
-      </form>
-
-      <hr>
-
-      ${
-        data.length
-        ? data.map(donation => `
-          <p>
-            ${esc(donation.donation_date)}
-            —
-            ${esc(donation.place)}
-          </p>
-        `).join('')
-        : '<p class="muted">No donation history yet.</p>'
-      }
-
-      <p class="note">
-        Donation history does not confirm medical
-        eligibility. A qualified professional must
-        assess every donor.
-      </p>
-
-    </div>
+  results.innerHTML = `
+    <div class="panel">Searching compatible donors...</div>
   `;
-}
-
-/* ==========================================
-   PART 5: DATABASE ACTIONS AND APPLICATION START
-========================================== */
-
-/* CONNECT MATCH - ADMIN */
-
-async function connectMatch(matchId) {
-  const confirmed = confirm(
-    'Connect this donor and requester? Both will receive notifications.'
-  );
-
-  if (!confirmed) return;
 
   try {
-    const { error } = await db.rpc(
+    const { data, error } = await db.rpc(
+      'search_lifedrop_donors',
+      {
+        p_blood_group: bloodGroup,
+        p_location: location.trim() || null
+      }
+    );
+
+    if (error) throw error;
+
+    if (!data || !data.length) {
+      results.innerHTML = `
+        <div class="panel empty">
+          No eligible matching donors found.
+          <br><br>
+          Try another location or blood group.
+        </div>
+      `;
+      return;
+    }
+
+    results.innerHTML = `
+      <div class="panel">
+
+        <h2>Matching Donors</h2>
+
+        <p class="muted">
+          ${data.length} compatible donor(s) found.
+          Only name and location are displayed
+          before Admin approval.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+
+            <tr>
+              <th>Donor Name</th>
+              <th>Address / Location</th>
+              <th>Action</th>
+            </tr>
+
+            ${data.map(donor => `
+              <tr>
+
+                <td>
+                  ${esc(donor.donor_name)}
+                </td>
+
+                <td>
+                  ${esc(donor.donor_location || 'Not provided')}
+                </td>
+
+                <td>
+                  <button
+                    type="button"
+                    class="btn primary"
+                    data-send-request="${esc(donor.donor_id)}"
+                    data-blood-group="${esc(bloodGroup)}">
+                    Send Request
+                  </button>
+                </td>
+
+              </tr>
+            `).join('')}
+
+          </table>
+        </div>
+
+      </div>
+    `;
+
+    results.querySelectorAll('[data-send-request]')
+      .forEach(button => {
+        button.onclick = () => {
+          sendDonorRequest(
+            button.dataset.sendRequest,
+            button.dataset.bloodGroup
+          );
+        };
+      });
+
+  } catch (error) {
+    results.innerHTML = `
+      <div class="panel">
+        <p>${esc(error.message)}</p>
+      </div>
+    `;
+
+    fail(error);
+  }
+}
+
+/* ==========================================
+   LIFEDROP - PART 3
+   SEND REQUEST TO SELECTED DONOR
+========================================== */
+
+async function sendDonorRequest(donorId, donorName, donorLocation) {
+  try {
+    if (!session || !myProfile) {
+      toast('Please login first');
+      return;
+    }
+
+    // Get selected blood group from Search Blood page
+    const groupSelect = [...document.querySelectorAll('select')]
+      .find(el => groups.includes(el.value));
+
+    const bloodGroup = groupSelect?.value;
+
+    if (!bloodGroup) {
+      toast('Please select a blood group first');
+      return;
+    }
+
+    const patientName = prompt('Enter patient name:');
+    if (!patientName || !patientName.trim()) return;
+
+    const unitsInput = prompt('How many blood units are needed?', '1');
+    if (unitsInput === null) return;
+
+    const units = Number(unitsInput);
+
+    if (!Number.isInteger(units) || units < 1 || units > 20) {
+      toast('Enter a valid number of units (1-20)');
+      return;
+    }
+
+    const today = new Date();
+    const defaultDate = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0')
+    ].join('-');
+
+    const neededDate = prompt(
+      'Enter required date (YYYY-MM-DD):',
+      defaultDate
+    );
+
+    if (!neededDate) return;
+
+    const location = prompt(
+      'Enter hospital or blood requirement location:',
+      donorLocation || ''
+    );
+
+    if (!location || !location.trim()) {
+      toast('Hospital/location is required');
+      return;
+    }
+
+    const profilePhone =
+      myProfile.contact_phone ||
+      myProfile.phone ||
+      '';
+
+    const contactPhone = prompt(
+      'Enter your contact phone number:',
+      profilePhone
+    );
+
+    if (!contactPhone || !contactPhone.trim()) return;
+
+    const details = prompt(
+      'Additional details (optional):',
+      ''
+    );
+
+    const { data, error } = await db.rpc(
+      'send_lifedrop_donor_request',
+      {
+        p_donor_id: donorId,
+        p_patient_name: patientName.trim(),
+        p_blood_group: bloodGroup,
+        p_units: units,
+        p_needed_date: neededDate,
+        p_location: location.trim(),
+        p_contact_phone: contactPhone.trim(),
+        p_details: details || null
+      }
+    );
+
+    if (error) throw error;
+
+    if (data?.success) {
+      toast(`Request sent to ${donorName || 'selected donor'} successfully!`);
+      await renderPage();
+    } else {
+      toast('Could not send request');
+    }
+
+  } catch (error) {
+    console.error('Send request error:', error);
+    toast(error.message || 'Failed to send request');
+  }
+}
+
+/* ==========================================
+   LIFEDROP - PART 4
+   ADMIN REQUESTS, CONNECT & COMPLETION
+========================================== */
+
+async function adminRequests() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>Requests & Matches</h2>
+      <p>Review donor requests and connect suitable donors.</p>
+      <div id="admin-match-list">Loading requests...</div>
+    </section>
+  `;
+
+  const list = $('admin-match-list');
+
+  try {
+    if (myProfile?.role !== 'admin') {
+      list.innerHTML = '<p>Admin access required.</p>';
+      return;
+    }
+
+    const { data: matches, error } = await db
+      .from('matches')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!matches || matches.length === 0) {
+      list.innerHTML = '<p>No requests found.</p>';
+      return;
+    }
+
+    let html = '';
+
+    for (const match of matches) {
+      const { data: request, error: requestError } = await db
+        .from('blood_requests')
+        .select('*')
+        .eq('id', match.request_id)
+        .maybeSingle();
+
+      if (requestError) throw requestError;
+      if (!request) continue;
+
+      const { data: donor } = await db
+        .from('profiles')
+        .select('full_name, blood_group, location')
+        .eq('id', match.donor_id)
+        .maybeSingle();
+
+      const { data: requester } = await db
+        .from('profiles')
+        .select('full_name')
+        .eq('id', match.requester_id)
+        .maybeSingle();
+
+      const status = match.status || 'candidate';
+
+      html += `
+        <div class="panel" style="margin-top:14px">
+          <h3>${esc(request.patient_name || 'Patient')}</h3>
+
+          <p><b>Blood Group:</b> ${esc(request.blood_group || '')}</p>
+          <p><b>Units:</b> ${esc(request.units ?? '')}</p>
+          <p><b>Needed Date:</b> ${esc(request.needed_date || '')}</p>
+          <p><b>Hospital/Location:</b> ${esc(request.location || '')}</p>
+
+          <hr>
+
+          <p><b>Requester:</b> ${esc(requester?.full_name || 'User')}</p>
+          <p><b>Donor:</b> ${esc(donor?.full_name || 'Donor')}</p>
+          <p><b>Donor Blood Group:</b> ${esc(donor?.blood_group || '')}</p>
+          <p><b>Donor Location:</b> ${esc(donor?.location || '')}</p>
+
+          <p><b>Status:</b> ${esc(status.toUpperCase())}</p>
+
+          ${
+            status === 'candidate'
+              ? `<button class="btn" data-action="admin-connect"
+                   data-id="${esc(match.id)}">
+                   Connect Donor
+                 </button>`
+              : status === 'connected'
+                ? '<p>Donor and requester are connected.</p>'
+                : '<p>Donation process completed.</p>'
+          }
+        </div>
+      `;
+    }
+
+    list.innerHTML = html || '<p>No requests found.</p>';
+
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
+
+async function adminConnectMatch(matchId) {
+  try {
+    if (myProfile?.role !== 'admin') {
+      toast('Only admin can connect matches');
+      return;
+    }
+
+    const confirmed = confirm(
+      'Are you sure you want to connect this donor and requester?'
+    );
+
+    if (!confirmed) return;
+
+    const { data, error } = await db.rpc(
       'admin_connect_match',
       { p_match_id: matchId }
     );
 
     if (error) throw error;
 
-    toast('Donor connected successfully.');
+    toast('Donor connected successfully!');
 
     await renderPage();
 
   } catch (error) {
-    fail(error);
+    console.error('Admin connect error:', error);
+    toast(error.message || 'Could not connect donor');
   }
 }
 
-/* BIND ALL PAGE ACTIONS */
 
-function bindPage() {
+/* ==========================================
+   CONNECTED PROFILES
+========================================== */
 
-  /* NAVIGATION SHORTCUTS */
+async function connectedProfiles() {
+  const area = $('page-content');
 
-  document.querySelectorAll('[data-goto]').forEach(button => {
-    button.onclick = () => {
-      page = button.dataset.goto;
-      renderNav();
-      renderPage();
-    };
-  });
+  area.innerHTML = `
+    <section class="panel">
+      <h2>Connected Profiles</h2>
+      <div id="connected-list">Loading...</div>
+    </section>
+  `;
 
-  /* NEW BLOOD REQUEST */
+  const list = $('connected-list');
 
-  const requestForm = $('request-form');
+  try {
+    const { data: matches, error } = await db
+      .from('matches')
+      .select('*')
+      .eq('status', 'connected')
+      .order('connected_at', { ascending: false });
 
-  if (requestForm) {
-    requestForm.onsubmit = async event => {
-      event.preventDefault();
+    if (error) throw error;
 
-      const form = new FormData(requestForm);
+    const myMatches = (matches || []).filter(match =>
+      match.requester_id === session.user.id ||
+      match.donor_id === session.user.id
+    );
 
-      try {
-        const payload = {
-          requester_id: me.id,
-          patient_name: form.get('patient_name'),
-          blood_group: form.get('blood_group'),
-          units: Number(form.get('units')),
-          needed_date: form.get('needed_date'),
-          location: form.get('location'),
-          contact_phone: form.get('contact_phone'),
-          details: form.get('details')
-        };
+    if (myMatches.length === 0) {
+      list.innerHTML = '<p>No connected profiles yet.</p>';
+      return;
+    }
 
-        const { error } = await db
-          .from('blood_requests')
-          .insert(payload);
+    let html = '';
 
-        if (error) throw error;
+    for (const match of myMatches) {
+      const otherUserId =
+        match.requester_id === session.user.id
+          ? match.donor_id
+          : match.requester_id;
 
-        toast('Blood request submitted successfully.');
+      const { data: profile, error: profileError } = await db
+        .from('profiles')
+        .select('*')
+        .eq('id', otherUserId)
+        .maybeSingle();
 
-        page = 'My Requests';
+      if (profileError) throw profileError;
 
-        renderNav();
-        renderPage();
-
-      } catch (error) {
-        fail(error);
+      if (!profile) {
+        html += `
+          <div class="panel">
+            <p>Connected profile is not available.</p>
+          </div>
+        `;
+        continue;
       }
-    };
-  }
 
-  /* UPDATE PROFILE AND UPLOAD PHOTO */
+      const { data: request } = await db
+        .from('blood_requests')
+        .select('patient_name, blood_group, location')
+        .eq('id', match.request_id)
+        .maybeSingle();
 
-  const profileForm = $('profile-form');
+      html += `
+        <div class="panel" style="margin-top:14px">
+          <h3>${esc(profile.full_name || 'Connected User')}</h3>
 
-  if (profileForm) {
-    profileForm.onsubmit = async event => {
-      event.preventDefault();
+          <p><b>Blood Group:</b> ${esc(profile.blood_group || 'Not provided')}</p>
+          <p><b>Location:</b> ${esc(profile.location || 'Not provided')}</p>
+          <p><b>Phone:</b> ${esc(profile.contact_phone || profile.phone || 'Not provided')}</p>
+          <p><b>Email:</b> ${esc(profile.email || 'Not provided')}</p>
 
-      const form = new FormData(profileForm);
-      const file = form.get('photo');
+          <hr>
 
-      try {
-        let photo_path = me.photo_path;
+          <p><b>Request:</b> ${esc(request?.patient_name || '')}</p>
+          <p><b>Required Blood:</b> ${esc(request?.blood_group || '')}</p>
+          <p><b>Hospital:</b> ${esc(request?.location || '')}</p>
 
-        if (file && file.size > 0) {
+          <button class="btn"
+            data-action="complete-match"
+            data-id="${esc(match.id)}">
+            Mark Donation Complete
+          </button>
+        </div>
+      `;
+    }
 
-          if (file.size > 3 * 1024 * 1024) {
-            throw new Error('Choose a photo smaller than 3 MB.');
-          }
+    list.innerHTML = html;
 
-          if (![
-            'image/jpeg',
-            'image/png',
-            'image/webp'
-          ].includes(file.type)) {
-            throw new Error('Use JPG, PNG or WebP photo.');
-          }
-
-          const extension =
-            file.type === 'image/png' ? 'png' :
-            file.type === 'image/webp' ? 'webp' : 'jpg';
-
-          const path = `${me.id}/profile.${extension}`;
-
-          const { error: uploadError } = await db
-            .storage
-            .from('profile-photos')
-            .upload(path, file, {
-              upsert: true,
-              contentType: file.type
-            });
-
-          if (uploadError) throw uploadError;
-
-          photo_path = path;
-        }
-
-        const update = {
-          full_name: form.get('full_name').trim(),
-          phone: form.get('phone').trim(),
-          blood_group: form.get('blood_group') || null,
-          last_donation_date:
-            form.get('last_donation_date') || null,
-          location: form.get('location').trim(),
-          photo_path
-        };
-
-        const { data, error } = await db
-          .from('profiles')
-          .update(update)
-          .eq('id', me.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        me = data;
-        myProfile = data;
-
-        toast('Profile updated successfully.');
-
-        await renderPage();
-
-      } catch (error) {
-        fail(error);
-      }
-    };
-  }
-
-  /* ADMIN CONNECT BUTTON */
-
-  document.querySelectorAll('[data-connect]').forEach(button => {
-    button.onclick = () => connectMatch(button.dataset.connect);
-  });
-
-  /* MARK NOTIFICATION AS READ */
-
-  document.querySelectorAll('[data-read]').forEach(button => {
-    button.onclick = async () => {
-      try {
-        const { error } = await db
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', button.dataset.read);
-
-        if (error) throw error;
-
-        toast('Notification marked as read.');
-
-        await renderPage();
-
-      } catch (error) {
-        fail(error);
-      }
-    };
-  });
-
-  /* ADD DONATION RECORD */
-
-  const donationForm = $('donation-form');
-
-  if (donationForm) {
-    donationForm.onsubmit = async event => {
-      event.preventDefault();
-
-      const form = new FormData(donationForm);
-
-      try {
-        const donationDate = form.get('donation_date');
-
-        const { error } = await db
-          .from('donations')
-          .insert({
-            donor_id: me.id,
-            donation_date: donationDate,
-            place: form.get('place')
-          });
-
-        if (error) throw error;
-
-        const { error: profileError } = await db
-          .from('profiles')
-          .update({
-            last_donation_date: donationDate
-          })
-          .eq('id', me.id);
-
-        if (profileError) throw profileError;
-
-        const { data, error: reloadError } = await db
-          .from('profiles')
-          .select('*')
-          .eq('id', me.id)
-          .single();
-
-        if (reloadError) throw reloadError;
-
-        me = data;
-        myProfile = data;
-
-        toast('Donation record saved successfully.');
-
-        await renderPage();
-
-      } catch (error) {
-        fail(error);
-      }
-    };
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = `<p>${esc(error.message)}</p>`;
   }
 }
 
-/* START LIFEDROP */
 
-init();
+/* ==========================================
+   COMPLETE DONATION
+========================================== */
 
+async function completeMatch(matchId) {
+  try {
+    const confirmed = confirm(
+      'Confirm that the blood donation has been completed?'
+    );
+
+    if (!confirmed) return;
+
+    const { data, error } = await db.rpc(
+      'complete_lifedrop_match',
+      { p_match_id: matchId }
+    );
+
+    if (error) throw error;
+
+    toast('Donation completed successfully!');
+
+    await renderPage();
+
+  } catch (error) {
+    console.error('Complete donation error:', error);
+    toast(error.message || 'Could not complete donation');
+  }
+}
+
+/* ==========================================
+   LIFEDROP - PART 5
+   NOTIFICATIONS, PROFILE, DONORS, HISTORY
+========================================== */
+
+
+/* ==========================================
+   NOTIFICATIONS
+========================================== */
+
+async function notificationsPage() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>Notifications</h2>
+      <div id="notification-list">Loading...</div>
+    </section>
+  `;
+
+  const list = $('notification-list');
+
+  try {
+    const { data, error } = await db
+      .from('notifications')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p>No notifications yet.</p>';
+      return;
+    }
+
+    list.innerHTML = data.map(item => `
+      <div class="panel" style="margin-top:12px">
+        <h3>${esc(item.title || 'LifeDrop Notification')}</h3>
+        <p>${esc(item.message || '')}</p>
+        <small>${esc(item.created_at ? new Date(item.created_at).toLocaleString() : '')}</small>
+      </div>
+    `).join('');
+
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
+
+/* ==========================================
+   MY PROFILE
+========================================== */
+
+async function profilePage() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>My Profile</h2>
+      <div id="profile-details">Loading profile...</div>
+    </section>
+  `;
+
+  const details = $('profile-details');
+
+  try {
+    const { data: profile, error } = await db
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!profile) {
+      details.innerHTML = '<p>Profile not found.</p>';
+      return;
+    }
+
+    myProfile = profile;
+
+    details.innerHTML = `
+      <div class="profile-info">
+        <p><b>Name:</b> ${esc(profile.full_name || '')}</p>
+        <p><b>Email:</b> ${esc(session.user.email || '')}</p>
+        <p><b>Phone:</b> ${esc(profile.contact_phone || profile.phone || 'Not provided')}</p>
+        <p><b>Blood Group:</b> ${esc(profile.blood_group || 'Not provided')}</p>
+        <p><b>Location:</b> ${esc(profile.location || 'Not provided')}</p>
+        <p><b>Role:</b> ${esc(profile.role || 'user')}</p>
+        <p><b>Last Donation:</b> ${esc(profile.last_donation_date || 'Not provided')}</p>
+      </div>
+    `;
+
+  } catch (error) {
+    console.error(error);
+    details.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
+
+/* ==========================================
+   ADMIN DONOR MANAGEMENT
+========================================== */
+
+async function adminDonors() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>Donor Management</h2>
+      <div id="admin-donor-list">Loading donors...</div>
+    </section>
+  `;
+
+  const list = $('admin-donor-list');
+
+  try {
+    if (myProfile?.role !== 'admin') {
+      list.innerHTML = '<p>Admin access required.</p>';
+      return;
+    }
+
+    const { data, error } = await db
+      .from('profiles')
+      .select('*')
+      .eq('role', 'donor')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p>No donors registered.</p>';
+      return;
+    }
+
+    list.innerHTML = data.map(donor => `
+      <div class="panel" style="margin-top:12px">
+        <h3>${esc(donor.full_name || 'Donor')}</h3>
+        <p><b>Blood Group:</b> ${esc(donor.blood_group || '')}</p>
+        <p><b>Location:</b> ${esc(donor.location || '')}</p>
+        <p><b>Phone:</b> ${esc(donor.contact_phone || donor.phone || 'Not provided')}</p>
+        <p><b>Last Donation:</b> ${esc(donor.last_donation_date || 'Not provided')}</p>
+      </div>
+    `).join('');
+
+  } catch (error) {
+    console.error(error);
+    list.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
+
+/* ==========================================
+   MY DONATION HISTORY
+========================================== */
+
+async function myDonations() {
+  const area = $('page-content');
+
+  area.innerHTML = `
+    <section class="panel">
+      <h2>My Donations</h2>
+      <div id="donation-history">Loading donation history...</div>
+    </section>
+  `;
+
+  const history = $('donation-history');
+
+  try {
+    const { data, error } = await db
+      .from('donations')
+      .select('*')
+      .eq('donor_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      history.innerHTML = '<p>No donation history found.</p>';
+      return;
+    }
+
+    history.innerHTML = data.map(item => `
+      <div class="panel" style="margin-top:12px">
+        <p><b>Units:</b> ${esc(item.units ?? 'Not provided')}</p>
+        <p><b>Donation Date:</b> ${esc(item.donation_date || item.created_at || '')}</p>
+        <p><b>Status:</b> ${esc(item.status || 'Completed')}</p>
+      </div>
+    `).join('');
+
+  } catch (error) {
+    console.error(error);
+    history.innerHTML = `<p>${esc(error.message)}</p>`;
+  }
+}
+
+/* ==========================================
+   LIFEDROP - PART 6
+   FINAL EVENT BINDING & APP START
+========================================== */
+
+
+/* ==========================================
+   ALL BUTTON EVENTS
+========================================== */
+
+document.addEventListener('click', async function(event) {
+  const button = event.target.closest('[data-action]');
+
+  if (!button) return;
+
+  const action = button.dataset.action;
+
+  try {
+    if (action === 'admin-connect') {
+      await adminConnectMatch(button.dataset.id);
+      return;
+    }
+
+    if (action === 'complete-match') {
+      await completeMatch(button.dataset.id);
+      return;
+    }
+
+    if (action === 'send-request') {
+      await sendDonorRequest(
+        button.dataset.donorId || button.dataset.id,
+        button.dataset.donorName || '',
+        button.dataset.donorLocation || ''
+      );
+      return;
+    }
+
+    if (action === 'search-donors') {
+      const groupInput = document.querySelector(
+        '#search-blood-group, [name="blood_group"]'
+      );
+
+      const locationInput = document.querySelector(
+        '#search-blood-location, [name="location"]'
+      );
+
+      const bloodGroup = groupInput?.value;
+      const location = locationInput?.value || '';
+
+      if (!bloodGroup) {
+        toast('Please select a blood group');
+        return;
+      }
+
+      await runDonorSearch(bloodGroup, location);
+      return;
+    }
+
+    if (action === 'logout') {
+      await logout();
+      return;
+    }
+
+  } catch (error) {
+    console.error('LifeDrop button error:', error);
+    toast(error.message || 'Something went wrong');
+  }
+});
+
+
+/* ==========================================
+   NAVIGATION EVENTS
+========================================== */
+
+document.addEventListener('click', async function(event) {
+  const navButton = event.target.closest('[data-page]');
+
+  if (!navButton) return;
+
+  const selectedPage = navButton.dataset.page;
+
+  if (!selectedPage) return;
+
+  page = selectedPage;
+
+  try {
+    await renderPage();
+  } catch (error) {
+    console.error('Navigation error:', error);
+    toast(error.message || 'Could not open page');
+  }
+});
+
+
+/* ==========================================
+   LOGOUT BUTTON
+========================================== */
+
+const logoutButton = $('logout-btn');
+
+if (logoutButton) {
+  logoutButton.addEventListener('click', async function() {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast(error.message || 'Logout failed');
+    }
+  });
+}
+
+
+/* ==========================================
+   START APPLICATION ONLY ONCE
+========================================== */
+
+let lifedropStarted = false;
+
+function startLifeDrop() {
+  if (lifedropStarted) return;
+
+  lifedropStarted = true;
+
+  init();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener(
+    'DOMContentLoaded',
+    startLifeDrop,
+    { once: true }
+  );
+} else {
+  startLifeDrop();
+}
