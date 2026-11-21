@@ -1086,3 +1086,9 @@ if (document.readyState !== 'loading') {
 
   init();
 }
+
+
+/* Compatibility alias: some older page handlers call notifications(). */
+async function notifications() {
+  return notificationsPage();
+}
