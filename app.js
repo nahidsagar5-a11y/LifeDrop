@@ -349,6 +349,68 @@ function bindPage() {
       await completeMatch(button.dataset.completeMatch);
     };
   });
+
+  const profileForm = $('profile-form');
+  if (profileForm) {
+    profileForm.onsubmit = async event => {
+      event.preventDefault();
+
+      const form = new FormData(profileForm);
+      const file = form.get('photo');
+
+      try {
+        let photo_path = me.photo_path || null;
+
+        if (file && file.size) {
+          if (file.size > 3 * 1024 * 1024) {
+            throw new Error('Choose a photo smaller than 3 MB.');
+          }
+
+          if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            throw new Error('Use JPG, PNG or WebP photo.');
+          }
+
+          const extension = file.type === 'image/png'
+            ? 'png'
+            : file.type === 'image/webp' ? 'webp' : 'jpg';
+
+          const path = `${me.id}/profile.${extension}`;
+
+          const { error: uploadError } = await db.storage
+            .from('profile-photos')
+            .upload(path, file, { upsert: true, contentType: file.type });
+
+          if (uploadError) throw uploadError;
+          photo_path = path;
+        }
+
+        const update = {
+          full_name: String(form.get('full_name') || '').trim(),
+          phone: String(form.get('phone') || '').trim(),
+          blood_group: form.get('blood_group') || null,
+          last_donation_date: form.get('last_donation_date') || null,
+          location: String(form.get('location') || '').trim(),
+          medical_condition: String(form.get('medical_condition') || '').trim() || null,
+          photo_path
+        };
+
+        const { data, error } = await db.from('profiles')
+          .update(update)
+          .eq('id', session.user.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        me = data;
+        myProfile = data;
+        toast('Profile updated successfully.');
+        await renderPage();
+      } catch (error) {
+        showError(error, 'Profile update error');
+      }
+    };
+  }
 }
 
 /* -------------------- COMMON HELPERS -------------------- */
@@ -891,6 +953,21 @@ async function notificationsPage() {
 
 /* -------------------- MY PROFILE -------------------- */
 
+/* -------------------- MY PROFILE -------------------- */
+
+async function photoUrl(path) {
+  if (!path) return '';
+  const { data, error } = await db.storage
+    .from('profile-photos')
+    .createSignedUrl(path, 900);
+
+  if (error) {
+    console.warn('Profile photo URL error:', error);
+    return '';
+  }
+  return data.signedUrl;
+}
+
 async function profilePage() {
   const { data: profile, error } = await db
     .from('profiles')
@@ -901,21 +978,72 @@ async function profilePage() {
   if (error) throw error;
   if (!profile) throw new Error('Profile not found.');
 
-  myProfile = profile;
   me = profile;
+  myProfile = profile;
+
+  const photo = await photoUrl(profile.photo_path);
+  const today = new Date().toISOString().slice(0, 10);
 
   return `
     <div class="panel">
       <h2>My Profile</h2>
-      <div class="profile-info">
-        <p><b>Name:</b> ${esc(profile.full_name || '')}</p>
-        <p><b>Email:</b> ${esc(session.user.email || '')}</p>
-        <p><b>Phone:</b> ${esc(profile.contact_phone || profile.phone || 'Not provided')}</p>
-        <p><b>Blood Group:</b> ${esc(profile.blood_group || 'Not provided')}</p>
-        <p><b>Location:</b> ${esc(profile.location || 'Not provided')}</p>
-        <p><b>Role:</b> ${esc(profile.role || 'user')}</p>
-        <p><b>Last Donation:</b> ${esc(profile.last_donation_date || 'Not provided')}</p>
+
+      <div class="profile">
+        <div class="avatar">
+          ${photo
+            ? `<img src="${esc(photo)}" alt="Profile photo">`
+            : esc(initials(profile.full_name))}
+        </div>
+        <div>
+          <b>${esc(profile.full_name || 'Your Name')}</b>
+          <p class="muted">${esc(session.user.email || '')} • ${esc(profile.role || 'user')}</p>
+        </div>
       </div>
+
+      <form id="profile-form" class="form-grid">
+        <label>
+          Full Name
+          <input name="full_name" value="${esc(profile.full_name || '')}" required>
+        </label>
+
+        <label>
+          Phone Number
+          <input name="phone" type="tel" value="${esc(profile.phone || profile.contact_phone || '')}" placeholder="01XXXXXXXXX">
+        </label>
+
+        <label>
+          Blood Group
+          <select name="blood_group">
+            ${groupOptions(profile.blood_group || '')}
+          </select>
+        </label>
+
+        <label>
+          Last Donation Date
+          <input name="last_donation_date" type="date" max="${today}" value="${esc(profile.last_donation_date || '')}">
+        </label>
+
+        <label class="wide">
+          Address / Location
+          <input name="location" value="${esc(profile.location || '')}" placeholder="Area, city, district">
+        </label>
+
+        <label class="wide">
+          Medical Condition
+          <textarea name="medical_condition" rows="3" placeholder="Mention any relevant medical condition (optional)">${esc(profile.medical_condition || '')}</textarea>
+        </label>
+
+        <label class="wide">
+          Profile Photo (JPG, PNG or WebP; max 3 MB)
+          <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
+        </label>
+
+        <div class="wide">
+          <button type="submit" class="btn primary">Save Profile</button>
+        </div>
+      </form>
+
+      <p class="note">Please provide accurate health information. Medical eligibility to donate must be confirmed by a qualified healthcare professional.</p>
     </div>
   `;
 }
