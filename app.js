@@ -683,38 +683,55 @@ async function completeMatch(matchId) {
 
 /* -------------------- NOTIFICATIONS -------------------- */
 
+
 async function notificationsPage() {
   const { data, error } = await db.from('notifications')
-    .select('*').eq('user_id', session.user.id)
+    .select('*')
+    .eq('user_id', session.user.id)
     .order('created_at', { ascending: false });
+
   if (error) throw error;
 
   if (!data?.length) {
     return '<div class="panel"><h2>Notifications</h2><p>No notifications yet.</p></div>';
   }
 
-  const unread = data.filter(item => !item.is_read).length;
+  const unread = data.filter(item => item.is_read !== true).length;
 
   return `
     <div class="panel">
       <h2>Notifications</h2>
       <p class="muted">${unread} unread notification(s)</p>
     </div>
+
     ${data.map(item => `
       <div class="panel" style="margin-top:12px">
         <h3>
           ${esc(item.title || 'LifeDrop Notification')}
-          ${item.is_read
-            ? '<span class="pill">Read</span>'
-            : '<span class="pill">Unread</span>'}
+          <span class="pill">${item.is_read === true ? 'Read' : 'Unread'}</span>
         </h3>
+
         <p>${esc(item.message || '')}</p>
-        <small>${esc(item.created_at ? new Date(item.created_at).toLocaleString() : '')}</small>
+
+        <small>${esc(item.created_at
+          ? new Date(item.created_at).toLocaleString()
+          : '')}</small>
+
         <div class="actions" style="margin-top:12px">
-          ${!item.is_read
-            ? `<button class="btn primary" type="button" data-mark-read="${esc(item.id)}">Mark as Read</button>`
-            : ''}
-          <button class="btn danger" type="button" data-delete-notification="${esc(item.id)}">Delete</button>
+          <button
+            class="btn primary"
+            type="button"
+            data-mark-read="${esc(item.id)}"
+            ${item.is_read === true ? 'disabled' : ''}>
+            ${item.is_read === true ? 'Already Read' : 'Mark as Read'}
+          </button>
+
+          <button
+            class="btn danger"
+            type="button"
+            data-delete-notification="${esc(item.id)}">
+            Delete
+          </button>
         </div>
       </div>
     `).join('')}
