@@ -344,6 +344,18 @@ function bindPage() {
     };
   });
 
+  document.querySelectorAll('[data-admin-view-profile]').forEach(button => {
+    button.onclick = async () => {
+      await adminViewProfile(button.dataset.adminViewProfile);
+    };
+  });
+
+  document.querySelectorAll('[data-admin-edit-profile]').forEach(button => {
+    button.onclick = async () => {
+      await adminEditProfile(button.dataset.adminEditProfile);
+    };
+  });
+
   document.querySelectorAll('[data-complete-match]').forEach(button => {
     button.onclick = async () => {
       await completeMatch(button.dataset.completeMatch);
@@ -1050,12 +1062,12 @@ async function profilePage() {
 
 /* -------------------- ADMIN DONORS -------------------- */
 
-
 async function adminDonors() {
   if (me?.role !== 'admin') {
     return '<div class="panel"><p>Admin access required.</p></div>';
   }
 
+  // The profiles table uses phone, not contact_phone.
   const { data, error } = await db
     .from('profiles')
     .select('*')
@@ -1068,29 +1080,148 @@ async function adminDonors() {
     return `
       <div class="panel">
         <h2>Donors & Users Management</h2>
-        <p>No profiles found.</p>
+        <p>No donor or regular user accounts found.</p>
       </div>
     `;
   }
 
+  const donors = data.filter(profile => profile.role === 'donor');
+  const users = data.filter(profile => profile.role === 'user');
+
   return `
     <div class="panel">
       <h2>Donors & Users Management</h2>
+      <p class="muted">Admin can view and edit donor and regular user profiles.</p>
+      <div class="stats">
+        <div class="stat-card"><span>Donor Accounts</span><b>${donors.length}</b></div>
+        <div class="stat-card"><span>Regular User Accounts</span><b>${users.length}</b></div>
+        <div class="stat-card"><span>Total Accounts</span><b>${data.length}</b></div>
+      </div>
     </div>
-
     ${data.map(profile => `
       <div class="panel" style="margin-top:12px">
-        <h3>${esc(profile.full_name || 'User')}</h3>
-        <p><b>Role:</b> ${esc(profile.role || 'user')}</p>
-        <p><b>Phone:</b> ${esc(profile.phone || 'Not provided')}</p>
+        <h3>${esc(profile.full_name || 'Unnamed Account')}</h3>
+        <p><b>Account Type:</b> ${esc((profile.role || 'user').toUpperCase())}</p>
         <p><b>Blood Group:</b> ${esc(profile.blood_group || 'Not provided')}</p>
-        <p><b>Address:</b> ${esc(profile.location || 'Not provided')}</p>
+        <p><b>Location:</b> ${esc(profile.location || 'Not provided')}</p>
+        <p><b>Phone:</b> ${esc(profile.phone || 'Not provided')}</p>
         <p><b>Last Donation:</b> ${esc(profile.last_donation_date || 'Not provided')}</p>
+        <div class="actions">
+          <button class="btn outline" type="button"
+            data-admin-view-profile="${esc(profile.id)}">View Profile</button>
+          <button class="btn primary" type="button"
+            data-admin-edit-profile="${esc(profile.id)}">Edit Profile</button>
+        </div>
       </div>
     `).join('')}
   `;
 }
 
+async function adminViewProfile(profileId) {
+  if (me?.role !== 'admin') {
+    toast('Admin access required.');
+    return;
+  }
+
+  try {
+    const { data: profile, error } = await db
+      .from('profiles')
+      .select('*')
+      .eq('id', profileId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!profile) throw new Error('Profile not found or access denied.');
+
+    alert([
+      `Name: ${profile.full_name || 'Not provided'}`,
+      `Account Type: ${profile.role || 'user'}`,
+      `Phone: ${profile.phone || 'Not provided'}`,
+      `Blood Group: ${profile.blood_group || 'Not provided'}`,
+      `Location: ${profile.location || 'Not provided'}`,
+      `Last Donation: ${profile.last_donation_date || 'Not provided'}`,
+      `Medical Condition: ${profile.medical_condition || 'Not provided'}`,
+      `Created: ${profile.created_at ? new Date(profile.created_at).toLocaleString() : 'Not available'}`
+    ].join('\n'));
+  } catch (error) {
+    showError(error, 'View profile error');
+  }
+}
+
+async function adminEditProfile(profileId) {
+  if (me?.role !== 'admin') {
+    toast('Admin access required.');
+    return;
+  }
+
+  try {
+    const { data: profile, error: loadError } = await db
+      .from('profiles')
+      .select('*')
+      .eq('id', profileId)
+      .maybeSingle();
+
+    if (loadError) throw loadError;
+    if (!profile) throw new Error('Profile not found or access denied.');
+
+    const fullName = prompt('Full name:', profile.full_name || '');
+    if (fullName === null) return;
+    if (!fullName.trim()) {
+      toast('Name cannot be empty.');
+      return;
+    }
+
+    const phone = prompt('Phone number:', profile.phone || '');
+    if (phone === null) return;
+
+    const bloodGroupInput = prompt(
+      'Blood group (A+, A-, B+, B-, AB+, AB-, O+, O-). Leave blank if not provided:',
+      profile.blood_group || ''
+    );
+    if (bloodGroupInput === null) return;
+    const bloodGroup = bloodGroupInput.trim().toUpperCase();
+    if (bloodGroup && !groups.includes(bloodGroup)) {
+      toast('Please enter a valid blood group.');
+      return;
+    }
+
+    const location = prompt('Address / Location:', profile.location || '');
+    if (location === null) return;
+
+    const lastDonation = prompt(
+      'Last donation date (YYYY-MM-DD). Leave blank if none:',
+      profile.last_donation_date || ''
+    );
+    if (lastDonation === null) return;
+
+    const medicalCondition = prompt(
+      'Medical condition (optional):',
+      profile.medical_condition || ''
+    );
+    if (medicalCondition === null) return;
+
+    const update = {
+      full_name: fullName.trim(),
+      phone: phone.trim() || null,
+      blood_group: bloodGroup || null,
+      location: location.trim() || null,
+      last_donation_date: lastDonation.trim() || null,
+      medical_condition: medicalCondition.trim() || null
+    };
+
+    const { error: updateError } = await db
+      .from('profiles')
+      .update(update)
+      .eq('id', profileId);
+
+    if (updateError) throw updateError;
+
+    toast('Profile updated successfully.');
+    await renderPage();
+  } catch (error) {
+    showError(error, 'Edit profile error');
+  }
+}
 
 /* -------------------- MY DONATIONS -------------------- */
 
