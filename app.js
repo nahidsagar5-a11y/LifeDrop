@@ -1050,6 +1050,7 @@ async function profilePage() {
 
 /* -------------------- ADMIN DONORS -------------------- */
 
+
 async function adminDonors() {
   if (me?.role !== 'admin') {
     return '<div class="panel"><p>Admin access required.</p></div>';
@@ -1057,8 +1058,8 @@ async function adminDonors() {
 
   const { data, error } = await db
     .from('profiles')
-    .select('id, full_name, blood_group, location, contact_phone, phone, last_donation_date, created_at')
-    .eq('role', 'donor')
+    .select('*')
+    .in('role', ['donor', 'user'])
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -1066,25 +1067,30 @@ async function adminDonors() {
   if (!data?.length) {
     return `
       <div class="panel">
-        <h2>Donor Management</h2>
-        <p>No donors registered.</p>
+        <h2>Donors & Users Management</h2>
+        <p>No profiles found.</p>
       </div>
     `;
   }
 
   return `
-    <div class="panel"><h2>Donor Management</h2></div>
-    ${data.map(donor => `
+    <div class="panel">
+      <h2>Donors & Users Management</h2>
+    </div>
+
+    ${data.map(profile => `
       <div class="panel" style="margin-top:12px">
-        <h3>${esc(donor.full_name || 'Donor')}</h3>
-        <p><b>Blood Group:</b> ${esc(donor.blood_group || '')}</p>
-        <p><b>Location:</b> ${esc(donor.location || '')}</p>
-        <p><b>Phone:</b> ${esc(donor.contact_phone || donor.phone || 'Not provided')}</p>
-        <p><b>Last Donation:</b> ${esc(donor.last_donation_date || 'Not provided')}</p>
+        <h3>${esc(profile.full_name || 'User')}</h3>
+        <p><b>Role:</b> ${esc(profile.role || 'user')}</p>
+        <p><b>Phone:</b> ${esc(profile.phone || 'Not provided')}</p>
+        <p><b>Blood Group:</b> ${esc(profile.blood_group || 'Not provided')}</p>
+        <p><b>Address:</b> ${esc(profile.location || 'Not provided')}</p>
+        <p><b>Last Donation:</b> ${esc(profile.last_donation_date || 'Not provided')}</p>
       </div>
     `).join('')}
   `;
 }
+
 
 /* -------------------- MY DONATIONS -------------------- */
 
