@@ -1,282 +1,87 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    <meta name="theme-color" content="#f3f6fb">
     <title>LifeDrop | Online Blood Donation</title>
-
-    <link rel="stylesheet" href="style.css?v=6">
-
-    <!-- Supabase Library -->
+    <link rel="stylesheet" href="style.css?v=7">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-
 <body>
-
-    <!-- HEADER -->
     <header class="topbar">
-        <a class="brand" href="#">
-            <span class="brand-mark">+</span> LifeDrop
-        </a>
-
+        <a class="brand" href="#"><span class="brand-mark">+</span> LifeDrop</a>
         <span class="tagline">Give blood. Give life.</span>
-
         <div id="header-user"></div>
     </header>
-
     <main class="container">
-
-        <!-- CONFIGURATION ERROR -->
         <section id="config-view" class="panel hidden">
             <h2>Connect LifeDrop to Supabase</h2>
-
-            <p>
-                Please check your config.js file.
-                Supabase Project URL and Publishable Key are required.
-            </p>
+            <p>Please check your config.js file. Supabase Project URL and Publishable Key are required.</p>
         </section>
-
-        <!-- LOGIN AND SIGNUP -->
         <section id="auth-view" class="auth-layout">
-
             <div class="hero">
-                <p class="eyebrow">
-                    A little help can save a life
-                </p>
-
-                <h1>
-                    Be someone's<br>
-                    <span>lifesaver.</span>
-                </h1>
-
-                <p>
-                    Find donors, submit blood requests
-                    and connect safely.
-                </p>
-
+                <p class="eyebrow">A little help can save a life</p>
+                <h1>Be someone's<br><span>lifesaver.</span></h1>
+                <p>Find donors, submit blood requests and connect safely.</p>
                 <div class="hero-stats">
-                    <div>
-                        <b>8</b>
-                        <small>Blood groups</small>
-                    </div>
-
-                    <div>
-                        <b>24/7</b>
-                        <small>Online access</small>
-                    </div>
+                    <div><b>8</b><small>Blood groups</small></div>
+                    <div><b>24/7</b><small>Online access</small></div>
                 </div>
             </div>
-
             <div class="auth-card">
-
-                <!-- TABS -->
                 <div class="tabs">
-
-                    <button
-                        type="button"
-                        class="tab active"
-                        data-tab="login">
-                        Login
-                    </button>
-
-                    <button
-                        type="button"
-                        class="tab"
-                        data-tab="signup">
-                        Create account
-                    </button>
-
+                    <button type="button" class="tab active" data-tab="login">Login</button>
+                    <button type="button" class="tab" data-tab="signup">Create account</button>
                 </div>
-
-                <!-- LOGIN FORM -->
                 <form id="login-form" class="auth-form">
-
                     <h2>Welcome back</h2>
-
-                    <label>
-                        Email
-
-                        <input
-                            name="email"
-                            type="email"
-                            autocomplete="email"
-                            required>
-                    </label>
-
-                    <label>
-                        Password
-
-                        <input
-                            name="password"
-                            type="password"
-                            autocomplete="current-password"
-                            required>
-                    </label>
-
-                    <button
-                        type="submit"
-                        class="btn primary full">
-                        Login
-                    </button>
-
+                    <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                    <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+                    <button type="submit" class="btn primary full">Login</button>
                 </form>
-
-                <!-- SIGNUP FORM -->
                 <form id="signup-form" class="auth-form hidden">
-
                     <h2>Create account</h2>
-
-                    <label>
-                        Full name
-
-                        <input
-                            name="name"
-                            type="text"
-                            autocomplete="name"
-                            required>
-                    </label>
-
-                    <label>
-                        Email
-
-                        <input
-                            name="email"
-                            type="email"
-                            autocomplete="email"
-                            required>
-                    </label>
-
-                    <label>
-                        Password
-
-                        <input
-                            name="password"
-                            type="password"
-                            minlength="8"
-                            autocomplete="new-password"
-                            required>
-                    </label>
-
-                    <label>
-                        Account type
-
-                        <select name="role" required>
-                            <option value="user">
-                                Blood requester
-                            </option>
-
-                            <option value="donor">
-                                Donor
-                            </option>
-                        </select>
-                    </label>
-
-                    <button
-                        type="submit"
-                        class="btn primary full">
-                        Create account
-                    </button>
-
-                    <p class="hint">
-                        Email confirmation may be required
-                        before login.
-                    </p>
-
+                    <label>Full name<input name="name" type="text" autocomplete="name" required></label>
+                    <label>Email<input name="email" type="email" autocomplete="email" required></label>
+                    <label>Password<input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
+                    <label>Account type<select name="role" required>
+                        <option value="user">Blood requester</option>
+                        <option value="donor">Donor</option>
+                    </select></label>
+                    <button type="submit" class="btn primary full">Create account</button>
+                    <p class="hint">Email confirmation may be required before login.</p>
                 </form>
-
             </div>
-
         </section>
-
-        <!-- APPLICATION DASHBOARD -->
         <section id="app-view" class="hidden">
-
             <div class="welcome-row">
-
-                <div>
-                    <p class="eyebrow">
-                        YOUR LIFE DROP SPACE
-                    </p>
-
-                    <h1 id="welcome-title">
-                        Dashboard
-                    </h1>
-                </div>
-
-                <button
-                    id="logout-btn"
-                    type="button"
-                    class="btn outline">
-                    Log out
-                </button>
-
+                <div><p class="eyebrow">YOUR LIFE DROP SPACE</p><h1 id="welcome-title">Dashboard</h1></div>
+                <button id="logout-btn" type="button" class="btn outline">Log out</button>
             </div>
-
             <nav id="nav" class="nav"></nav>
-
             <div id="page-content"></div>
-
         </section>
-
     </main>
-
-    <!-- FOOTER -->
-    <footer>
-        LifeDrop Blood Donation Management System
-        • Academic demonstration project
-    </footer>
-
-    <!-- TOAST MESSAGE -->
-    <div
-        id="toast"
-        class="toast"
-        role="status"
-        aria-live="polite">
-    </div>
-
-    <!-- LOAD CONFIGURATION FIRST -->
+    <footer>LifeDrop Blood Donation Management System • Academic demonstration project</footer>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="config.js?v=6"></script>
-
-    <!-- CHECK JAVASCRIPT ERRORS -->
     <script>
         window.addEventListener('error', function(event) {
             console.error('LifeDrop JavaScript Error:', event.error);
-
-            alert(
-                'JavaScript Error: ' +
-                (event.message || 'Unknown error')
-            );
+            alert('JavaScript Error: ' + (event.message || 'Unknown error'));
         });
-
         window.addEventListener('unhandledrejection', function(event) {
             console.error('LifeDrop Promise Error:', event.reason);
-
-            alert(
-                'Application Error: ' +
-                (event.reason?.message || String(event.reason))
-            );
+            alert('Application Error: ' + (event.reason?.message || String(event.reason)));
         });
-
         window.addEventListener('DOMContentLoaded', function() {
             console.log('LifeDrop HTML loaded.');
-
-            console.log(
-                'Supabase library:',
-                typeof window.supabase
-            );
-
-            console.log(
-                'Supabase URL:',
-                window.LIFEDROP_SUPABASE_URL
-            );
+            console.log('Supabase library:', typeof window.supabase);
+            console.log('Supabase URL:', window.LIFEDROP_SUPABASE_URL);
         });
     </script>
-
-    <!-- LOAD MAIN APPLICATION LAST -->
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=12"></script>
     <script src="admin-management.js?v=12"></script>
-
 </body>
 </html>
