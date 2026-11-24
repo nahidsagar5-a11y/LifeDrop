@@ -1059,149 +1059,89 @@ async function myRequests() {
 
 async function adminRequests() {
   if (me?.role !== 'admin') {
-    return `
-      <div class="panel">
-        <p>Admin access required.</p>
-      </div>
-    `;
+    return `<div class="panel"><p>Admin access required.</p></div>`;
   }
 
-  const {
-    data: matches,
-    error
-  } = await db
-    .from('matches')
-    .select('*')
-    .order('created_at', {
-      ascending: false
-    });
+  // Start from requests, not matches, so a request remains visible as PENDING
+  // after its completed match/history row has been removed by Admin.
+  const [{ data: requests, error: requestError }, { data: matches, error: matchError }, { data: ratingRows, error: ratingError }] = await Promise.all([
+    db.from('blood_requests').select('*').order('created_at', { ascending: false }),
+    db.from('matches').select('*').order('created_at', { ascending: false }),
+    db.rpc('get_lifedrop_donor_ratings')
+  ]);
+  if (requestError) throw requestError;
+  if (matchError) throw matchError;
+  if (ratingError) console.warn('Admin donor ratings unavailable:', ratingError);
 
-  if (error) throw error;
+  const ratings = new Map((ratingRows || []).map(r => [String(r.donor_id), r]));
+  const matchesByRequest = new Map();
+  for (const match of (matches || [])) {
+    if (!matchesByRequest.has(String(match.request_id))) matchesByRequest.set(String(match.request_id), []);
+    matchesByRequest.get(String(match.request_id)).push(match);
+  }
 
-  if (!matches?.length) {
-    return `
-      <div class="panel">
-        <h2>Requests & Matches</h2>
-        <p>No donor requests found.</p>
-      </div>
-    `;
+  if (!requests?.length) {
+    return `<div class="panel"><h2>Requests & Matches</h2><p>No donor requests found.</p></div>`;
   }
 
   const cards = [];
+  for (const request of requests) {
+    const requestMatches = matchesByRequest.get(String(request.id)) || [];
+    // A request with no remaining match/history row is intentionally retained
+    // and presented as PENDING, rather than disappearing from the admin page.
+    const rows = requestMatches.length ? requestMatches : [null];
+    for (const match of rows) {
+      let donor = null;
+      let requester = null;
+      let status = match?.status || 'pending';
+      if (match) {
+        const [donorResult, requesterResult] = await Promise.all([
+          db.from('profiles').select('id, full_name, blood_group, location').eq('id', match.donor_id).maybeSingle(),
+          db.from('profiles').select('full_name').eq('id', match.requester_id).maybeSingle()
+        ]);
+        if (donorResult.error) throw donorResult.error;
+        if (requesterResult.error) throw requesterResult.error;
+        donor = donorResult.data;
+        requester = requesterResult.data;
+      } else {
+        const { data, error } = await db.from('profiles').select('full_name').eq('id', request.requester_id).maybeSingle();
+        if (error) throw error;
+        requester = data;
+      }
+      const rating = donor ? ratings.get(String(donor.id)) : null;
+      const average = Number(rating?.average_rating || 0);
+      const reviewCount = Number(rating?.review_count || 0);
+      const ratingWidth = Math.max(0, Math.min(100, average / 5 * 100));
+      const ratingMarkup = donor ? (reviewCount
+        ? `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span><small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>`
+        : `<span class="rating-stars rating-empty">☆☆☆☆☆</span><small class="rating-caption rating-unrated">No reviews yet</small>`)
+        : `<small class="rating-caption">No donor assigned</small>`;
 
-  for (const match of matches) {
-    const {
-      data: request,
-      error: requestError
-    } = await db
-      .from('blood_requests')
-      .select('*')
-      .eq('id', match.request_id)
-      .maybeSingle();
-
-    if (requestError) throw requestError;
-    if (!request) continue;
-
-    const [
-      donorResult,
-      requesterResult
-    ] = await Promise.all([
-
-      db
-        .from('profiles')
-        .select('full_name, blood_group, location')
-        .eq('id', match.donor_id)
-        .maybeSingle(),
-
-      db
-        .from('profiles')
-        .select('full_name')
-        .eq('id', match.requester_id)
-        .maybeSingle()
-
-    ]);
-
-    if (donorResult.error) throw donorResult.error;
-    if (requesterResult.error) throw requesterResult.error;
-
-    const donor = donorResult.data;
-    const requester = requesterResult.data;
-    const status = match.status || 'candidate';
-
-    cards.push(`
-      <div class="panel" style="margin-top:14px">
-
-        <h3>
-          ${esc(request.patient_name || 'Patient')}
-        </h3>
-
-        <p>
-          <b>Required Blood:</b>
-          ${esc(request.blood_group || '')}
-        </p>
-
-        <p>
-          <b>Units:</b>
-          ${esc(request.units ?? '')}
-        </p>
-
-        <p>
-          <b>Needed Date:</b>
-          ${esc(request.needed_date || '')}
-        </p>
-
-        <p>
-          <b>Hospital:</b>
-          ${esc(request.location || '')}
-        </p>
-
-        <hr>
-
-        <p>
-          <b>Requester:</b>
-          ${esc(requester?.full_name || 'User')}
-        </p>
-
-        <p>
-          <b>Donor:</b>
-          ${esc(donor?.full_name || 'Donor')}
-        </p>
-
-        <p>
-          <b>Donor Blood Group:</b>
-          ${esc(donor?.blood_group || '')}
-        </p>
-
-        <p>
-          <b>Donor Location:</b>
-          ${esc(donor?.location || '')}
-        </p>
-
-        <p>
-          <b>Status:</b>
-          ${esc(status.toUpperCase())}
-        </p>
-
-        ${status === 'candidate' || status === 'pending_donor'
-          ? '<p>Waiting for the donor to confirm or decline this request.</p>'
-          : status === 'connected'
-            ? '<p>Donor and requester are connected. Both can manage completion or cancellation.</p>'
-            : status === 'cancelled'
-              ? `<p>Cancelled. Reason: ${esc(match.cancel_reason || 'Not provided')}</p>`
-              : '<p>Donation completed.</p>'
-        }
-
-      </div>
-    `);
+      cards.push(`
+        <div class="panel admin-request-card" style="margin-top:14px">
+          <h3>${esc(request.patient_name || 'Patient')}</h3>
+          <p><b>Required Blood:</b> ${esc(request.blood_group || '')}</p>
+          <p><b>Units:</b> ${esc(request.units ?? '')}</p>
+          <p><b>Needed Date:</b> ${esc(request.needed_date || '')}</p>
+          <p><b>Hospital:</b> ${esc(request.location || '')}</p>
+          <hr>
+          <p><b>Requester:</b> ${esc(requester?.full_name || 'User')}</p>
+          <p><b>Donor:</b> ${esc(donor?.full_name || 'Not matched yet')}</p>
+          ${donor ? `<div class="admin-donor-rating"><b>Donor rating:</b> ${ratingMarkup}</div><p><b>Donor Blood Group:</b> ${esc(donor.blood_group || '')}</p><p><b>Donor Location:</b> ${esc(donor.location || '')}</p>` : ''}
+          <p><b>Status:</b> <span class="status-pill ${status === 'pending' || status === 'pending_donor' ? 'active' : status === 'completed' ? 'done' : ''}">${esc(status.toUpperCase().replaceAll('_', ' '))}</span></p>
+          ${status === 'pending' ? '<p>This request is pending and waiting for a donor match.</p>' : status === 'candidate' || status === 'pending_donor'
+            ? '<p>Waiting for the donor to confirm or decline this request.</p>'
+            : status === 'connected'
+              ? '<p>Donor and requester are connected. Both can manage completion or cancellation.</p>'
+              : status === 'cancelled'
+                ? `<p>Cancelled. Reason: ${esc(match?.cancel_reason || 'Not provided')}</p>`
+                : '<p>Donation completed.</p>'}
+        </div>
+      `);
+    }
   }
 
-  return `
-    <div class="panel">
-      <h2>Requests & Matches</h2>
-    </div>
-
-    ${cards.join('')}
-  `;
+  return `<div class="panel"><h2>Requests & Matches</h2><p class="muted">Deleted completed history remains as a pending request. Donor ratings are retained independently.</p></div>${cards.join('')}`;
 }
 
 /* -------------------- ADMIN CONNECT MATCH -------------------- */
