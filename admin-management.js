@@ -1,4 +1,4 @@
-/* LifeDrop admin donor/user management. Loaded after app.js. */
+/* BloodDrop admin donor/user management. Loaded after app.js. */
 (function () {
   if (typeof window === 'undefined') return;
 
@@ -8,11 +8,15 @@
       .select('id,full_name,email,role,phone,blood_group,location,last_donation_date,created_at')
       .in('role', ['donor', 'user']).order('created_at', { ascending: false });
     if (error) throw error;
+    const { data: ratingRows, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
+    if (ratingError) throw ratingError;
+    const ratingMap = new Map((ratingRows || []).map(r => [r.donor_id, r]));
     if (!data?.length) return '<section class="panel"><h2>Donors & users</h2><p>No registered profiles found.</p></section>';
     return `<section class="panel"><div class="section-heading"><div><p class="eyebrow">ADMIN CONTROL</p><h2>Donors & users</h2><p class="muted">Review and manage registered accounts.</p></div><span class="soft-chip">${data.length} accounts</span></div></section>
       <div class="admin-profile-grid">${data.map(p => `<article class="profile-card">
         <div class="profile-card-top"><div class="avatar avatar-small">${esc((p.full_name || '?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase())}</div><span class="soft-chip">${esc(p.role)}</span></div>
         <h3>${esc(p.full_name || 'Unnamed profile')}</h3><p class="muted">${esc(p.email || '')}</p>
+        ${p.role==='donor' ? (()=>{const r=ratingMap.get(p.id);const avg=Number(r?.average_rating||0),count=Number(r?.review_count||0),pct=Math.max(0,Math.min(100,avg/5*100));return `<div class="donor-rating-inline"><span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${pct}%">★★★★★</span></span><small class="rating-caption">${avg.toFixed(1)}/5 · ${count} reviews</small></div>`;})() : ''}
         <div class="profile-facts"><span><b>Blood group</b>${esc(p.blood_group || 'Not set')}</span><span><b>Phone</b>${esc(p.phone || 'Not provided')}</span><span><b>Location</b>${esc(p.location || 'Not provided')}</span><span><b>Last donation</b>${esc(p.last_donation_date || 'Not provided')}</span></div>
         <div class="actions"><button class="btn outline" type="button" data-admin-edit-profile="${esc(p.id)}">Edit profile</button><button class="btn danger" type="button" data-admin-delete-profile="${esc(p.id)}">Delete account</button></div>
       </article>`).join('')}</div>`;
