@@ -5,3 +5,26 @@
 @media(max-width:640px){.topbar{height:62px;padding:0 15px}.tagline{display:none}.container{margin:22px auto;padding:0 14px}.auth-layout{grid-template-columns:1fr;gap:22px;margin:22px auto}.hero h1{font-size:43px}.hero-stats{margin:20px 0;gap:35px}.auth-card,.panel,.stat-card,.profile-card{padding:18px;border-radius:16px}.welcome-row{align-items:flex-start}.welcome-row h1{font-size:25px}.welcome-actions{gap:7px}.welcome-actions .btn{padding:10px 12px}.nav{flex-wrap:nowrap;overflow-x:auto;padding:6px}.nav button{white-space:nowrap}.stats{gap:10px}.stat-card b{font-size:25px}.grid2,.form-grid{grid-template-columns:1fr}.wide{grid-column:auto}.admin-profile-grid,.donor-grid{grid-template-columns:1fr}.blood-group-grid,.compat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.profile{align-items:flex-start}.profile-facts{grid-template-columns:1fr 1fr}.support-fab{right:14px;bottom:14px;padding:12px 15px}.modal-card{padding:18px}.chat-compose{grid-template-columns:1fr}.section-heading{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 .landing-compat{grid-column:1/-1}
+
+
+/* LifeDrop final upgrades */
+.blood-group-click{font:inherit;text-align:left;cursor:pointer;border:1px solid var(--line);background:#fff;transition:transform .2s,box-shadow .2s}
+.blood-group-click:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(30,45,65,.10)}
+.blood-group-click .card-link{font-size:.78rem;color:var(--red);font-weight:800;margin-top:8px}
+.donor-detail-card{overflow:hidden;transition:transform .2s,box-shadow .2s}
+.donor-detail-card:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(25,33,43,.09)}
+.donor-card-open{width:100%;border:0;background:transparent;text-align:left;color:inherit;cursor:pointer;padding:0}
+.donor-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.donor-card-actions .btn{flex:1}
+.donor-card .avatar img,.profile-card .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.donor-meta{display:grid;gap:8px;margin-top:12px;color:var(--muted);font-size:.88rem}
+.history-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid var(--line)}
+.history-row p{margin:6px 0;color:var(--muted)}
+.donor-detail-modal{line-height:1.8}
+@media(max-width:600px){.history-row{align-items:flex-start;flex-direction:column}.donor-card-actions .btn{flex:1 1 100%}}
+
+.public-admin-card{grid-column:1/-1;text-align:center;display:flex;align-items:center;flex-direction:column;gap:10px}
+.admin-public-avatar{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#c6283d,#ef8290);color:#fff;font-size:1.5rem;font-weight:800;box-shadow:0 8px 22px rgba(198,40,61,.2)}
+.public-admin-card h2,.public-admin-card p{margin:0}
+.public-admin-contact{line-height:1.8;overflow-wrap:anywhere}
+.public-admin-contact a{color:var(--red);font-weight:700}
