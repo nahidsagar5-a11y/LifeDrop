@@ -205,23 +205,26 @@ tr:hover td{background:#fff8f9}
   border-color: #e11d48;
   box-shadow: 0 14px 30px rgba(20, 44, 80, .12);
 }
-.donor-card-public .donor-card-title { min-width: 0; }
-.donor-card-public .donor-card-title h3 { margin: 0 0 6px; }
+.donor-card-public .donor-card-title { min-width: 0; flex: 1; }
+.donor-card-public .donor-name-rating { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 10px; margin-bottom: 7px; }
+.donor-card-public .donor-card-title h3 { margin: 0; }
 .public-donor-rating {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 13px 0;
-  padding: 9px 11px;
+  gap: 5px;
+  margin: 0;
+  padding: 4px 8px;
   border: 1px solid #f5b7c4;
-  border-radius: 12px;
+  border-radius: 999px;
   background: #fff5f7;
+  white-space: nowrap;
 }
-.public-donor-rating .rating-stars { font-size: 19px; letter-spacing: 1px; line-height: 1; }
+.public-donor-rating .rating-stars { font-size: 14px; letter-spacing: 0; line-height: 1; }
 .public-donor-rating .stars-base { color: #d7dce5; }
 .public-donor-rating .stars-value { color: #e11d48; }
-.public-donor-rating .rating-caption { color: #7f1d3b; font-weight: 650; }
+.public-donor-rating .rating-caption { color: #7f1d3b; font-size: 11px; font-weight: 700; }
+.public-donor-rating .rating-unrated { color: #64748b; }
 .donor-eligibility {
   display: grid;
   gap: 5px;
@@ -251,3 +254,13 @@ tr:hover td{background:#fff8f9}
   .donor-card-public { transition: none; }
   .donor-card-public:hover { transform: none; }
 }
+
+
+/* Blood search: colourful, responsive donor-card experience */
+.search-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:30px 34px;margin:0 0 18px;border:1.5px solid #f2a2af;border-radius:24px;background:linear-gradient(115deg,#fff1f3 0%,#fff 58%,#f0f5ff 100%);box-shadow:0 12px 30px rgba(217,47,73,.07);overflow:hidden}
+.search-hero-copy{max-width:650px}.search-kicker,.section-tag{display:inline-flex;align-items:center;gap:6px;color:#c52c49;font-size:11px;font-weight:900;letter-spacing:1.5px}.search-hero h2{margin:8px 0 7px;font:800 clamp(24px,3vw,34px)/1.2 Manrope,sans-serif;letter-spacing:-1px;color:#19263a}.search-hero p{margin:0;color:#64748b;max-width:590px}.search-hero-icon{flex:0 0 88px;width:88px;height:88px;display:grid;place-items:center;border-radius:28px;background:linear-gradient(145deg,#ef526c,#c92343);color:white;font-size:42px;box-shadow:0 12px 24px #d92f4938;transform:rotate(7deg)}
+.search-panel{border:1.5px solid #91b5ed;background:linear-gradient(145deg,#fff 0%,#f8fbff 100%);padding:26px}.search-panel-heading,.results-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}.search-panel-heading h2,.results-heading h2{margin:4px 0 0;font:800 22px Manrope,sans-serif}.search-step{font:800 21px Manrope;color:#3e74c8}.search-step i{font-size:12px;color:#9aa9bf;font-style:normal}.search-form{margin-top:18px}.search-form label{gap:9px}.search-form label>span{font-size:13px;font-weight:800;color:#30425c}.search-form label small{color:#8996a9;font-weight:500}.search-form input,.search-form select{min-height:49px;border-radius:13px;background:#fff}.search-submit{min-height:48px;padding:12px 22px}.search-assurance{display:flex;align-items:center;gap:8px;margin-top:16px;color:#397254;font-size:12px;font-weight:700}.search-assurance span{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#dcf5e7;color:#16845b}
+.search-results-section{margin:24px 0 8px}.results-heading{margin-bottom:16px}.results-heading p{margin:5px 0 0}.results-count{flex-shrink:0;padding:8px 13px;border-radius:30px;background:#eaf2ff;color:#315fa8;font-size:12px;font-weight:800;border:1px solid #bfd3f5}.donor-search-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}.donor-search-card{min-width:0;padding:19px;border:1.5px solid #f0a0ad;border-radius:19px;background:linear-gradient(150deg,#fff 0%,#fff7f8 100%);box-shadow:0 8px 22px rgba(24,35,52,.055);transition:transform .2s ease,box-shadow .2s ease}.donor-search-card:hover{transform:translateY(-4px);box-shadow:0 15px 28px rgba(24,35,52,.10)}.donor-search-tone-1{border-color:#91b5ed;background:linear-gradient(150deg,#fff,#f4f8ff)}.donor-search-tone-2{border-color:#8acbad;background:linear-gradient(150deg,#fff,#f3fcf7)}.donor-search-tone-3{border-color:#c1a6e8;background:linear-gradient(150deg,#fff,#faf6ff)}.donor-search-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}.donor-avatar{width:48px;height:48px;display:grid;place-items:center;border-radius:16px;background:#ffe0e6;color:#c52c49;font:800 21px Manrope,sans-serif}.donor-search-tone-1 .donor-avatar{background:#dceaff;color:#3267b6}.donor-search-tone-2 .donor-avatar{background:#d9f4e5;color:#218052}.donor-search-tone-3 .donor-avatar{background:#eee2ff;color:#7950ad}.match-chip{padding:5px 9px;border-radius:20px;background:#e7f8ee;color:#23774d;font-size:10px;font-weight:900;white-space:nowrap}.donor-search-card h3{margin:0 0 8px;font:800 17px Manrope,sans-serif;color:#1d2b40;overflow-wrap:anywhere}.donor-search-location{display:flex;align-items:flex-start;gap:7px;color:#68778d;font-size:13px;min-height:22px}.donor-search-divider{height:1px;background:rgba(117,137,164,.2);margin:16px 0 13px}.donor-search-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.private-note{color:#77869b;font-size:11px;font-weight:700}.donor-request-btn{padding:9px 12px;font-size:12px}.search-loading,.search-empty,.search-error{text-align:center;padding:30px}.search-loading strong{display:block;margin-top:8px}.loading-pulse{font-size:30px;display:inline-block;animation:donorPulse 1s ease-in-out infinite alternate}@keyframes donorPulse{to{transform:scale(1.2);opacity:.65}}.empty-heart{font-size:42px;color:#d95b72}.search-empty h3{margin:6px 0}.search-error{border-color:#e9a0aa;background:#fff8f9}
+@media(max-width:900px){.donor-search-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.search-hero{padding:23px 20px;border-radius:19px}.search-hero-icon{width:60px;height:60px;flex-basis:60px;border-radius:19px;font-size:29px}.search-panel{padding:20px}.search-form{grid-template-columns:1fr}.search-form .wide{grid-column:auto}.search-submit{width:100%}.donor-search-grid{grid-template-columns:1fr}.results-heading{align-items:flex-start;flex-direction:column}.donor-search-card{padding:17px}.search-step{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.donor-search-card,.loading-pulse{animation:none;transition:none}}
