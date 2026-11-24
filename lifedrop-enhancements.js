@@ -190,9 +190,36 @@
       }
       const donors = donorResults.flatMap(result => result.data || []);
       const uniqueDonors = [...new Map(donors.map(d => [d.donor_id, d])).values()];
-      const { data: ratingRows, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
-      if (ratingError) throw ratingError;
-      const ratings = new Map((ratingRows || []).map(r => [r.donor_id, r]));
+      // Ratings must never prevent donor cards from rendering. Prefer the
+      // public aggregate RPC; if it is not installed yet, calculate averages
+      // from the publicly readable review rows instead.
+      let ratingRows = [];
+      const { data: rpcRatings, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
+      if (!ratingError && Array.isArray(rpcRatings)) {
+        ratingRows = rpcRatings;
+      } else {
+        console.warn('Donor rating aggregate RPC unavailable; using public review rows.', ratingError);
+        const { data: reviewRows, error: reviewsError } = await db
+          .from('lifedrop_donor_reviews').select('donor_id,rating');
+        if (!reviewsError && Array.isArray(reviewRows)) {
+          const totals = new Map();
+          reviewRows.forEach(row => {
+            const key = String(row.donor_id);
+            const item = totals.get(key) || { donor_id: row.donor_id, total: 0, review_count: 0 };
+            item.total += Number(row.rating) || 0;
+            item.review_count += 1;
+            totals.set(key, item);
+          });
+          ratingRows = [...totals.values()].map(item => ({
+            donor_id: item.donor_id,
+            review_count: item.review_count,
+            average_rating: Math.round((item.total / item.review_count) * 10) / 10
+          }));
+        } else {
+          console.warn('Public donor reviews are not available yet.', reviewsError);
+        }
+      }
+      const ratings = new Map(ratingRows.map(r => [String(r.donor_id), r]));
       uniqueDonors.sort((a, b) => {
         const ea = donorEligibilityInfo(a.last_donation_date).eligible ? 0 : 1;
         const eb = donorEligibilityInfo(b.last_donation_date).eligible ? 0 : 1;
@@ -209,7 +236,7 @@
           const name = d.donor_name || 'BloodDrop Donor';
           const locationText = d.donor_location || 'Location not provided';
           const initialsText = name.trim().split(/\s+/).slice(0,2).map(x => x[0] || '').join('').toUpperCase();
-          const rating = ratings.get(d.donor_id);
+          const rating = ratings.get(String(d.donor_id));
           const average = Number(rating?.average_rating || 0);
           const reviewCount = Number(rating?.review_count || 0);
           const ratingWidth = Math.max(0, Math.min(100, average / 5 * 100));
@@ -218,7 +245,7 @@
           const lastDonation = d.last_donation_date ? esc(String(d.last_donation_date).slice(0, 10)) : 'Not provided';
           return `<article class="donor-card donor-card-public">
             <div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div class="donor-card-title"><div class="donor-name-rating"><h3>${esc(name)}</h3><div class="public-donor-rating" aria-label="${reviewCount ? `${average.toFixed(1)} out of 5, ${reviewCount} reviews` : 'No ratings yet'}">
-              ${reviewCount ? `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span><small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>` : '<small class="rating-caption rating-unrated">☆ No ratings yet</small>'}
+              ${reviewCount ? `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span><small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>` : '<span class="rating-stars rating-empty" aria-hidden="true">☆☆☆☆☆</span><small class="rating-caption rating-unrated">No reviews yet</small>'}
             </div></div><span class="soft-chip">${esc(d.blood_group || 'Blood group not set')}</span></div></div>
             <div class="donor-meta"><span>⌖ ${esc(locationText)}</span><span>♥ Requested group: ${esc(group)}</span></div>
             <div class="donor-eligibility ${eligibilityClass}">
