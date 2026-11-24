@@ -1,4 +1,4 @@
-/* LifeDrop final UI upgrades - loaded after lifedrop-enhancements.js */
+/* BloodDrop final UI upgrades - loaded after lifedrop-enhancements.js */
 (function () {
   'use strict';
   const groups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
@@ -36,8 +36,8 @@
     const root=document.getElementById('page-content');
     const {data,error}=await db.from('notifications').select('*').order('created_at',{ascending:false}).limit(300);
     if(error) throw error;
-    root.innerHTML=`<section class="panel"><p class="eyebrow">ADMIN CONTROL</p><h2>All notifications</h2><p class="muted">Review and remove notifications across LifeDrop accounts.</p></section>
-      ${(data||[]).map(n=>`<article class="panel notification-card"><h3>${safe(n.title||'LifeDrop Notification')}</h3><p>${safe(n.message||'')}</p><small>User: ${safe(n.user_id)} · ${safe(n.created_at||'')}</small><div class="actions"><button class="btn danger" data-admin-delete-notification="${safe(n.id)}" type="button">Delete notification</button></div></article>`).join('') || '<section class="panel empty-state">No notifications found.</section>'}`;
+    root.innerHTML=`<section class="panel"><p class="eyebrow">ADMIN CONTROL</p><h2>All notifications</h2><p class="muted">Review and remove notifications across BloodDrop accounts.</p></section>
+      ${(data||[]).map(n=>`<article class="panel notification-card"><h3>${safe(n.title||'BloodDrop Notification')}</h3><p>${safe(n.message||'')}</p><small>User: ${safe(n.user_id)} · ${safe(n.created_at||'')}</small><div class="actions"><button class="btn danger" data-admin-delete-notification="${safe(n.id)}" type="button">Delete notification</button></div></article>`).join('') || '<section class="panel empty-state">No notifications found.</section>'}`;
     root.querySelectorAll('[data-admin-delete-notification]').forEach(b=>b.onclick=()=>window.lifeDropConfirm('Delete notification?','This removes the selected notification from the account.','Delete',async()=>{try{const {error}=await db.from('notifications').delete().eq('id',b.dataset.adminDeleteNotification);if(error)throw error;toast('Notification deleted.');await window.renderPage();}catch(err){showError(err,'Admin notification delete error');}},true));
   }
 
@@ -62,7 +62,7 @@
         const initials = (d.donor_name || 'LD').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
         return `<article class="donor-card donor-detail-card">
           <button class="donor-card-open" type="button" data-donor-details="${safe(d.donor_id)}">
-            <div class="donor-card-head"><div class="avatar avatar-small">${photo ? `<img src="${safe(photo)}" alt="Donor profile photo">` : safe(initials)}</div><div><h3>${safe(d.donor_name || 'LifeDrop Donor')}</h3><span class="soft-chip">${safe(d.blood_group)}</span></div></div>
+            <div class="donor-card-head"><div class="avatar avatar-small">${photo ? `<img src="${safe(photo)}" alt="Donor profile photo">` : safe(initials)}</div><div><h3>${safe(d.donor_name || 'BloodDrop Donor')}</h3><span class="soft-chip">${safe(d.blood_group)}</span></div></div>
             <div class="donor-meta"><span>⌖ ${safe(d.donor_location || 'Location not provided')}</span><span>Last donation: ${safe(d.last_donation_date || 'Not provided')}</span></div>
           </button>
           <div class="donor-card-actions"><button class="btn primary" type="button" data-send-request="${safe(d.donor_id)}" data-blood-group="${safe(group)}" data-donor-name="${safe(d.donor_name)}" data-donor-location="${safe(d.donor_location || '')}">Send Blood Request</button><button class="btn outline" type="button" data-donor-details="${safe(d.donor_id)}">View details</button></div>
@@ -79,7 +79,7 @@
     document.querySelectorAll('[data-send-request]').forEach(b => b.onclick = () => window.sendDonorRequest(b.dataset.sendRequest,b.dataset.bloodGroup,b.dataset.donorName,b.dataset.donorLocation));
     document.querySelectorAll('[data-donor-details]').forEach(b => b.onclick = () => {
       const d = data.find(x => x.donor_id === b.dataset.donorDetails); if (!d) return;
-      const body = `<div class="donor-detail-modal"><h3>${safe(d.donor_name || 'LifeDrop Donor')}</h3><p><b>Blood group:</b> ${safe(d.blood_group)}</p><p><b>Location:</b> ${safe(d.donor_location || 'Not provided')}</p><p><b>Phone:</b> ${safe(d.donor_phone || 'Not provided')}</p><p><b>Last donation:</b> ${safe(d.last_donation_date || 'Not provided')}</p><p class="hint">Please contact donors respectfully and confirm availability before arranging a donation.</p></div>`;
+      const body = `<div class="donor-detail-modal"><h3>${safe(d.donor_name || 'BloodDrop Donor')}</h3><p><b>Blood group:</b> ${safe(d.blood_group)}</p><p><b>Location:</b> ${safe(d.donor_location || 'Not provided')}</p><p><b>Phone:</b> ${safe(d.donor_phone || 'Not provided')}</p><p><b>Last donation:</b> ${safe(d.last_donation_date || 'Not provided')}</p><p class="hint">Please contact donors respectfully and confirm availability before arranging a donation.</p></div>`;
       window.lifeDropModal('Donor details', body);
     });
   }
@@ -112,39 +112,63 @@
     bindDashboardCards();
   };
 
+  async function loadCompletedMatchRows() {
+    const { data: matches, error } = await db.from('matches').select('*').ilike('status', 'completed').order('created_at', { ascending: false }).limit(250);
+    if (error) throw error;
+    const rows = [];
+    for (const match of (matches || [])) {
+      const [requestResult, donorResult, requesterResult] = await Promise.all([
+        db.from('blood_requests').select('*').eq('id', match.request_id).maybeSingle(),
+        db.from('profiles').select('full_name, blood_group, location').eq('id', match.donor_id).maybeSingle(),
+        db.from('profiles').select('full_name').eq('id', match.requester_id).maybeSingle()
+      ]);
+      if (requestResult.error) throw requestResult.error;
+      if (donorResult.error) throw donorResult.error;
+      if (requesterResult.error) throw requesterResult.error;
+      const request = requestResult.data || {};
+      const donor = donorResult.data || {};
+      const requester = requesterResult.data || {};
+      rows.push(`<article class="history-row completed-match-row"><div><b>${safe(request.patient_name || requester.full_name || 'Completed donation')}</b><p>Blood: ${safe(request.blood_group || donor.blood_group || '—')} · Units: ${safe(request.units ?? '—')} · Date: ${safe(match.updated_at || match.created_at || request.needed_date || '—')}</p><p>Donor: ${safe(donor.full_name || 'Donor')} · Location: ${safe(donor.location || request.location || '—')}</p><small>Status: COMPLETED · Record: ${safe(match.id)}</small></div><button class="btn danger" type="button" data-delete-completed-match="${safe(match.id)}">Delete history</button></article>`);
+    }
+    return rows;
+  }
+
   async function renderDonationHistory() {
     const root = document.getElementById('page-content');
-    const { data, error } = await db.from('donations').select('*').order('created_at', {ascending:false}).limit(250);
-    if (error) { root.innerHTML = `<section class="panel"><h2>Completed donation history</h2><p>${safe(error.message)}</p></section>`; return; }
-    const html = (data || []).map(d => `<article class="history-row"><div><b>Donation record</b><p>Units: ${safe(d.units ?? '—')} · Date: ${safe(d.donation_date || d.created_at || '—')} · Status: ${safe(d.status || 'Completed')}</p><small>${safe(d.id)}</small></div><button class="btn danger" type="button" data-delete-donation="${safe(d.id)}">Delete</button></article>`).join('');
-    root.innerHTML = `<section class="panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed donation history</h2><p class="muted">Deleting a record is permanent. Confirm before continuing.</p>${html || '<p class="empty-state">No donation records.</p>'}</section>`;
-    bindDonationDeleteButtons(root);
+    try {
+      const rows = await loadCompletedMatchRows();
+      root.innerHTML = `<section class="panel requests-history-panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed Donation History</h2><p class="muted">Completed donations are listed from Requests & Matches. Deleting removes only the completed match record.</p>${rows.join('') || '<p class="empty-state">No completed donation history found.</p>'}</section>`;
+      bindCompletedMatchDeleteButtons(root);
+    } catch (error) {
+      root.innerHTML = `<section class="panel"><h2>Completed Donation History</h2><p>${safe(error.message || 'Could not load completed donations.')}</p></section>`;
+    }
   }
 
   async function appendCompletedHistoryToRequests() {
     const root = document.getElementById('page-content');
     if (!root) return;
-    const { data, error } = await db.from('donations').select('*').order('created_at', { ascending: false }).limit(250);
-    if (error) {
-      root.insertAdjacentHTML('beforeend', `<section class="panel"><h2>Completed Donation History</h2><p>${safe(error.message)}</p></section>`);
-      return;
+    // Prevent duplicate history panels if the page is rendered more than once.
+    root.querySelectorAll('.requests-history-panel').forEach(panel => panel.remove());
+    try {
+      const rows = await loadCompletedMatchRows();
+      root.insertAdjacentHTML('beforeend', `<section class="panel requests-history-panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed Donation History</h2><p class="muted">Completed donations are listed here. Delete removes only the selected completed match record.</p>${rows.join('') || '<p class="empty-state">No completed donation history found.</p>'}</section>`);
+      bindCompletedMatchDeleteButtons(root);
+    } catch (error) {
+      root.insertAdjacentHTML('beforeend', `<section class="panel requests-history-panel"><h2>Completed Donation History</h2><p>${safe(error.message || 'Could not load completed donations.')}</p></section>`);
     }
-    const rows = (data || []).map(d => `<article class="history-row"><div><b>Completed donation</b><p>Units: ${safe(d.units ?? '—')} · Date: ${safe(d.donation_date || d.created_at || '—')} · Status: ${safe(d.status || 'Completed')}</p><small>Record: ${safe(d.id)}</small></div><button class="btn danger" type="button" data-delete-donation="${safe(d.id)}">Delete history</button></article>`).join('');
-    root.insertAdjacentHTML('beforeend', `<section class="panel requests-history-panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed Donation History</h2><p class="muted">Delete a completed donation record when it should no longer remain in the history.</p>${rows || '<p class="empty-state">No completed donation history found.</p>'}</section>`);
-    bindDonationDeleteButtons(root);
   }
 
-  function bindDonationDeleteButtons(root) {
-    root.querySelectorAll('[data-delete-donation]').forEach(b => {
-      if (b.dataset.boundDelete) return;
-      b.dataset.boundDelete = '1';
-      b.onclick = () => window.lifeDropConfirm('Delete donation record?', 'This permanently removes the selected donation history record.', 'Delete', async () => {
+  function bindCompletedMatchDeleteButtons(root) {
+    root.querySelectorAll('[data-delete-completed-match]').forEach(button => {
+      if (button.dataset.boundDelete) return;
+      button.dataset.boundDelete = '1';
+      button.onclick = () => window.lifeDropConfirm('Delete completed donation?', 'This permanently removes the selected completed match record. The blood request itself will remain.', 'Delete', async () => {
         try {
-          const { error } = await db.rpc('admin_delete_lifedrop_donation', { p_donation_id: b.dataset.deleteDonation });
+          const { error } = await db.rpc('admin_delete_lifedrop_completed_match', { p_match_id: button.dataset.deleteCompletedMatch });
           if (error) throw error;
-          toast('Donation history deleted.');
+          toast('Completed donation history deleted.');
           await window.renderPage();
-        } catch (e) { showError(e, 'Delete donation error'); }
+        } catch (error) { showError(error, 'Delete completed donation error'); }
       }, true);
     });
   }
