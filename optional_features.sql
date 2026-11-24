@@ -1,5 +1,5 @@
--- LifeDrop OPTIONAL ADD-ON MIGRATION
--- This script is additive: it does not drop or replace existing LifeDrop tables,
+-- BloodDrop OPTIONAL ADD-ON MIGRATION
+-- This script is additive: it does not drop or replace existing BloodDrop tables,
 -- policies, triggers, RPC functions, user accounts, or donor data.
 -- Run only if you want the new blood-group dashboard counts and Support Chat.
 
@@ -25,7 +25,7 @@ grant execute on function public.get_lifedrop_blood_group_counts() to authentica
 create table if not exists public.support_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  subject text not null default 'LifeDrop support',
+  subject text not null default 'BloodDrop support',
   status text not null default 'open' check (status in ('open','resolved')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -241,7 +241,7 @@ end $$;
 
 
 
--- LifeDrop safe add-on: donor detail cards and admin history controls.
+-- BloodDrop safe add-on: donor detail cards and admin history controls.
 -- Run this AFTER reviewing; it does not drop existing tables or functions.
 
 create or replace function public.get_lifedrop_donor_cards(p_blood_group text, p_location text default null)
@@ -305,7 +305,7 @@ returns table(full_name text, email text, phone text, photo_path text, about tex
 language sql stable security definer set search_path = public
 as $$
   select p.full_name, p.email, p.phone, p.photo_path,
-         'LifeDrop Project Admin — helping people connect with blood donors safely.'
+         'BloodDrop Project Admin — helping people connect with blood donors safely.'
   from public.profiles p
   where p.role = 'admin'
   order by p.created_at asc
@@ -336,3 +336,244 @@ using (
   bucket_id = 'profile-photos'
   and public.lifedrop_is_public_admin_photo(name)
 );
+
+
+-- BloodDrop fix (2026-11-24): completed donations are represented by completed
+-- rows in public.matches. The Admin history UI reads those rows directly.
+-- This RPC deletes only the selected completed match; it leaves the blood request
+-- and all other matches untouched.
+create or replace function public.admin_delete_lifedrop_completed_match(p_match_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_lifedrop_admin() then
+    raise exception 'Admin access required.';
+  end if;
+
+  delete from public.matches
+  where id = p_match_id
+    and lower(coalesce(status, '')) = 'completed';
+
+  if not found then
+    raise exception 'Completed donation record not found.';
+  end if;
+end;
+$$;
+revoke all on function public.admin_delete_lifedrop_completed_match(uuid) from public;
+grant execute on function public.admin_delete_lifedrop_completed_match(uuid) to authenticated;
+
+-- =========================================================
+-- LIFEDROP COMMUNITY WORKFLOW (2026-11-24)
+-- Donor confirmation, mutual private profiles, completion,
+-- cancellation reasons, and public donor reviews.
+-- Additive migration: does not drop existing tables or data.
+-- =========================================================
+
+alter table public.matches add column if not exists cancel_reason text;
+alter table public.matches add column if not exists cancelled_by uuid references public.profiles(id) on delete set null;
+alter table public.matches add column if not exists completed_at timestamptz;
+alter table public.matches add column if not exists completed_by uuid references public.profiles(id) on delete set null;
+
+-- Ensure each participant can read their own request and match records.
+drop policy if exists lifedrop_match_participant_read on public.matches;
+create policy lifedrop_match_participant_read on public.matches for select to authenticated
+using (requester_id=auth.uid() or donor_id=auth.uid() or public.is_lifedrop_admin());
+grant select on public.matches to authenticated;
+drop policy if exists lifedrop_blood_request_participant_read on public.blood_requests;
+create policy lifedrop_blood_request_participant_read on public.blood_requests for select to authenticated
+using (requester_id=auth.uid() or public.is_lifedrop_admin() or exists (select 1 from public.matches m where m.request_id=blood_requests.id and m.donor_id=auth.uid()));
+grant select on public.blood_requests to authenticated;
+
+create table if not exists public.lifedrop_donor_reviews (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null unique references public.matches(id) on delete cascade,
+  donor_id uuid not null references public.profiles(id) on delete cascade,
+  reviewer_id uuid not null references public.profiles(id) on delete cascade,
+  rating integer not null check (rating between 1 and 5),
+  review_text text not null check (length(trim(review_text)) between 5 and 1000),
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_lifedrop_reviews_donor_created on public.lifedrop_donor_reviews(donor_id, created_at desc);
+alter table public.lifedrop_donor_reviews enable row level security;
+drop policy if exists lifedrop_reviews_public_read on public.lifedrop_donor_reviews;
+create policy lifedrop_reviews_public_read on public.lifedrop_donor_reviews for select to anon, authenticated using (true);
+grant select on public.lifedrop_donor_reviews to anon, authenticated;
+
+-- A new request is immediately delivered to the selected donor; Admin does not
+-- need to manually connect the match. The donor must explicitly confirm.
+create or replace function public.send_lifedrop_donor_request_v2(
+  p_donor_id uuid, p_patient_name text, p_blood_group text, p_units integer,
+  p_needed_date date, p_location text, p_contact_phone text, p_details text default null
+) returns jsonb
+language plpgsql security definer set search_path = public, auth
+as $$
+declare v_request_id uuid; v_match_id uuid; v_donor public.profiles%rowtype; v_requester public.profiles%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Please login first.'; end if;
+  select * into v_requester from public.profiles where id=auth.uid();
+  if not found then raise exception 'Your profile was not found.'; end if;
+  if p_donor_id=auth.uid() then raise exception 'You cannot send a request to yourself.'; end if;
+  select * into v_donor from public.profiles where id=p_donor_id and role='donor';
+  if not found then raise exception 'Selected donor is not available.'; end if;
+  if not public.is_compatible_donor(v_donor.blood_group,p_blood_group) then raise exception 'This donor is not compatible with the requested blood group.'; end if;
+  if nullif(trim(p_patient_name),'') is null or nullif(trim(p_location),'') is null or nullif(trim(p_contact_phone),'') is null then raise exception 'Please complete all required fields.'; end if;
+  if p_units not between 1 and 20 or p_needed_date < current_date then raise exception 'Invalid units or required date.'; end if;
+  insert into public.blood_requests(requester_id,patient_name,blood_group,units,needed_date,location,contact_phone,details,status)
+  values(auth.uid(),trim(p_patient_name),p_blood_group,p_units,p_needed_date,trim(p_location),trim(p_contact_phone),nullif(trim(p_details),''),'Waiting for donor') returning id into v_request_id;
+  insert into public.matches(request_id,requester_id,donor_id,status)
+  values(v_request_id,auth.uid(),p_donor_id,'pending_donor') returning id into v_match_id;
+  insert into public.notifications(user_id,title,message) values
+  (p_donor_id,'New blood donation request',v_requester.full_name||' sent you a request for '||p_blood_group||' blood. Please confirm or decline in Donor Requests.'),
+  (auth.uid(),'Request sent','Your blood request was sent to '||v_donor.full_name||'. You will be notified when the donor responds.');
+  return jsonb_build_object('success',true,'request_id',v_request_id,'match_id',v_match_id);
+end; $$;
+revoke all on function public.send_lifedrop_donor_request_v2(uuid,text,text,integer,date,text,text,text) from public;
+grant execute on function public.send_lifedrop_donor_request_v2(uuid,text,text,integer,date,text,text,text) to authenticated;
+
+-- Donor confirms/declines a new request, or either connected member cancels.
+-- A reason is mandatory for every decline/cancellation.
+create or replace function public.donor_respond_lifedrop_match(p_match_id uuid,p_accept boolean,p_reason text default null)
+returns void language plpgsql security definer set search_path=public,auth
+as $$
+declare v_match public.matches%rowtype; v_actor_name text; v_other uuid;
+begin
+  select * into v_match from public.matches where id=p_match_id for update;
+  if not found then raise exception 'Request not found.'; end if;
+  if auth.uid() not in (v_match.donor_id,v_match.requester_id) then raise exception 'You are not part of this request.'; end if;
+  select full_name into v_actor_name from public.profiles where id=auth.uid();
+  v_other := case when auth.uid()=v_match.donor_id then v_match.requester_id else v_match.donor_id end;
+  if p_accept then
+    if auth.uid()<>v_match.donor_id then raise exception 'Only the donor can confirm a request.'; end if;
+    if v_match.status not in ('pending_donor','candidate') then raise exception 'This request is no longer waiting for donor confirmation.'; end if;
+    update public.matches set status='connected',connected_at=now(),cancel_reason=null,cancelled_by=null where id=p_match_id;
+    update public.blood_requests set status='Connected' where id=v_match.request_id;
+    insert into public.notifications(user_id,title,message) values
+      (v_match.requester_id,'Donor confirmed your request',coalesce(v_actor_name,'Your donor')||' accepted your blood request. You can now view each other’s contact profiles.'),
+      (v_match.donor_id,'Connection confirmed','You are connected with the blood requester. You can now view each other’s contact profiles.');
+  else
+    if nullif(trim(p_reason),'') is null or length(trim(p_reason))<5 then raise exception 'Please provide a reason (at least 5 characters).'; end if;
+    if v_match.status not in ('pending_donor','candidate','connected') then raise exception 'This request cannot be cancelled now.'; end if;
+    if v_match.status='pending_donor' or v_match.status='candidate' then
+      if auth.uid()<>v_match.donor_id then raise exception 'Only the donor can decline a pending request.'; end if;
+    end if;
+    update public.matches set status='cancelled',cancel_reason=trim(p_reason),cancelled_by=auth.uid() where id=p_match_id;
+    insert into public.notifications(user_id,title,message) values
+      (v_other,'Donation request cancelled',coalesce(v_actor_name,'A member')||' cancelled the donation request. Reason: '||trim(p_reason)),
+      (auth.uid(),'Cancellation recorded','Your cancellation reason was sent to the other member.');
+  end if;
+end; $$;
+revoke all on function public.donor_respond_lifedrop_match(uuid,boolean,text) from public;
+grant execute on function public.donor_respond_lifedrop_match(uuid,boolean,text) to authenticated;
+
+-- Contact details are revealed only to the two members of an accepted match.
+create or replace function public.get_lifedrop_connected_profile(p_match_id uuid)
+returns jsonb language plpgsql stable security definer set search_path=public,auth
+as $$
+declare v_match public.matches%rowtype; v_other uuid; v_profile public.profiles%rowtype;
+begin
+  select * into v_match from public.matches where id=p_match_id;
+  if not found or v_match.status not in ('connected','completed') then return null; end if;
+  if auth.uid()=v_match.requester_id then v_other:=v_match.donor_id;
+  elsif auth.uid()=v_match.donor_id then v_other:=v_match.requester_id;
+  else return null; end if;
+  select * into v_profile from public.profiles where id=v_other;
+  if not found then return null; end if;
+  return jsonb_build_object('id',v_profile.id,'full_name',v_profile.full_name,'email',v_profile.email,'phone',v_profile.phone,'blood_group',v_profile.blood_group,'location',v_profile.location,'photo_path',v_profile.photo_path,'last_donation_date',v_profile.last_donation_date);
+end; $$;
+revoke all on function public.get_lifedrop_connected_profile(uuid) from public;
+grant execute on function public.get_lifedrop_connected_profile(uuid) to authenticated;
+
+-- Complete by either connected member; update the donor's eligibility date.
+create or replace function public.complete_lifedrop_match_v2(p_match_id uuid)
+returns void language plpgsql security definer set search_path=public,auth
+as $$
+declare v_match public.matches%rowtype; v_place text; v_donor_name text;
+begin
+  select * into v_match from public.matches where id=p_match_id for update;
+  if not found then raise exception 'Connected donation was not found.'; end if;
+  if auth.uid() not in (v_match.requester_id,v_match.donor_id) then raise exception 'You are not part of this donation.'; end if;
+  if v_match.status<>'connected' then raise exception 'Only a connected donation can be completed.'; end if;
+  select location into v_place from public.blood_requests where id=v_match.request_id;
+  select full_name into v_donor_name from public.profiles where id=v_match.donor_id;
+  update public.matches set status='completed',completed_at=now(),completed_by=auth.uid() where id=p_match_id;
+  update public.profiles set last_donation_date=current_date where id=v_match.donor_id;
+  insert into public.donations(donor_id,donation_date,place) values(v_match.donor_id,current_date,coalesce(v_place,'BloodDrop donation'));
+  update public.blood_requests set status='Completed' where id=v_match.request_id;
+  insert into public.notifications(user_id,title,message) values
+    (v_match.requester_id,'Donation completed','The donation with '||coalesce(v_donor_name,'your donor')||' was marked completed.'),
+    (v_match.donor_id,'Donation completed','Your last donation date has been updated to '||current_date::text||'.');
+end; $$;
+revoke all on function public.complete_lifedrop_match_v2(uuid) from public;
+grant execute on function public.complete_lifedrop_match_v2(uuid) to authenticated;
+
+create or replace function public.submit_lifedrop_donor_review(p_match_id uuid,p_rating integer,p_review_text text)
+returns void language plpgsql security definer set search_path=public,auth
+as $$
+declare v_match public.matches%rowtype;
+begin
+  select * into v_match from public.matches where id=p_match_id;
+  if not found or v_match.status<>'completed' then raise exception 'Only completed donations can be reviewed.'; end if;
+  if auth.uid()<>v_match.requester_id then raise exception 'Only the blood requester can review this donor.'; end if;
+  if p_rating not between 1 and 5 or length(trim(coalesce(p_review_text,''))) not between 5 and 1000 then raise exception 'Please provide a rating and a review of 5–1000 characters.'; end if;
+  insert into public.lifedrop_donor_reviews(match_id,donor_id,reviewer_id,rating,review_text)
+  values(p_match_id,v_match.donor_id,auth.uid(),p_rating,trim(p_review_text));
+end; $$;
+revoke all on function public.submit_lifedrop_donor_review(uuid,integer,text) from public;
+grant execute on function public.submit_lifedrop_donor_review(uuid,integer,text) to authenticated;
+
+drop function if exists public.get_lifedrop_public_donor_reviews(integer);
+create or replace function public.get_lifedrop_public_donor_reviews(p_limit integer default 50)
+returns table(review_id uuid,donor_id uuid,reviewer_id uuid,donor_name text,reviewer_name text,rating integer,review_text text,created_at timestamptz)
+language sql stable security definer set search_path=public
+as $$
+  select r.id,r.donor_id,r.reviewer_id,d.full_name,rv.full_name,r.rating,r.review_text,r.created_at
+  from public.lifedrop_donor_reviews r
+  join public.profiles d on d.id=r.donor_id
+  join public.profiles rv on rv.id=r.reviewer_id
+  order by r.created_at desc limit greatest(1,least(coalesce(p_limit,50),200));
+$$;
+revoke all on function public.get_lifedrop_public_donor_reviews(integer) from public;
+grant execute on function public.get_lifedrop_public_donor_reviews(integer) to anon,authenticated;
+
+-- Public aggregate rating for each donor: average star score and total review count.
+create or replace function public.get_lifedrop_donor_ratings()
+returns table(donor_id uuid,review_count bigint,average_rating numeric)
+language sql stable security definer set search_path=public
+as $$
+  select r.donor_id,count(*)::bigint,round(avg(r.rating)::numeric,1)
+  from public.lifedrop_donor_reviews r
+  group by r.donor_id;
+$$;
+revoke all on function public.get_lifedrop_donor_ratings() from public;
+grant execute on function public.get_lifedrop_donor_ratings() to anon,authenticated;
+
+-- Admin-only review editing and deletion. The original requester and donor remain unchanged.
+create or replace function public.admin_update_lifedrop_donor_review(p_review_id uuid,p_rating integer,p_review_text text)
+returns void language plpgsql security definer set search_path=public
+as $$
+begin
+  if not public.is_lifedrop_admin() then raise exception 'Admin access required.'; end if;
+  if p_rating not between 1 and 5 or length(trim(coalesce(p_review_text,''))) not between 5 and 1000 then
+    raise exception 'Rating must be 1–5 and review text 5–1000 characters.';
+  end if;
+  update public.lifedrop_donor_reviews
+    set rating=p_rating,review_text=trim(p_review_text)
+    where id=p_review_id;
+  if not found then raise exception 'Review not found.'; end if;
+end; $$;
+revoke all on function public.admin_update_lifedrop_donor_review(uuid,integer,text) from public;
+grant execute on function public.admin_update_lifedrop_donor_review(uuid,integer,text) to authenticated;
+
+create or replace function public.admin_delete_lifedrop_donor_review(p_review_id uuid)
+returns void language plpgsql security definer set search_path=public
+as $$
+begin
+  if not public.is_lifedrop_admin() then raise exception 'Admin access required.'; end if;
+  delete from public.lifedrop_donor_reviews where id=p_review_id;
+  if not found then raise exception 'Review not found.'; end if;
+end; $$;
+revoke all on function public.admin_delete_lifedrop_donor_review(uuid) from public;
+grant execute on function public.admin_delete_lifedrop_donor_review(uuid) to authenticated;
