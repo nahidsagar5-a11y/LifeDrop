@@ -129,28 +129,113 @@
       .replace('</form>', '</form><p class="hint">Donor availability and eligibility must be confirmed before arranging a donation.</p>');
   };
 
+  function donorEligibilityInfo(lastDonationDate) {
+    if (!lastDonationDate) {
+      return {
+        eligible: false,
+        label: 'Last donation date not provided',
+        detail: 'Update the donor profile to calculate the waiting period.'
+      };
+    }
+    const parts = String(lastDonationDate).slice(0, 10).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(n => !Number.isFinite(n))) {
+      return {
+        eligible: false,
+        label: 'Date unavailable',
+        detail: 'Please update the donor profile.'
+      };
+    }
+    const last = new Date(parts[0], parts[1] - 1, parts[2]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const elapsed = Math.floor((today - last) / 86400000);
+    if (!Number.isFinite(elapsed) || elapsed < 0) {
+      return {
+        eligible: false,
+        label: 'Check donation date',
+        detail: 'The recorded date is in the future.'
+      };
+    }
+    const remaining = Math.max(0, 90 - elapsed);
+    return remaining === 0
+      ? {
+          eligible: true,
+          label: '90-day interval reached',
+          detail: 'Date-based interval reached; medical eligibility must still be confirmed.'
+        }
+      : {
+          eligible: false,
+          label: `${remaining} day${remaining === 1 ? '' : 's'} remaining`,
+          detail: 'Until the 90-day interval is reached.'
+        };
+  }
+
   window.runDonorSearch = async function enhancedRunDonorSearch(group, location = '') {
     const results = document.getElementById('donor-search-results');
     if (!results) return originalRunDonorSearch(group, location);
     results.innerHTML = '<div class="panel loading-line">Finding compatible donors…</div>';
     try {
-      const { data, error } = await db.rpc('search_lifedrop_donors', { p_blood_group: group, p_location: location.trim() || null });
-      if (error) throw error;
-      if (!data?.length) {
-        results.innerHTML = '<div class="panel empty-state"><h3>No matching donors found</h3><p>Try another location or check again later.</p></div>';
+      // Fetch every donor in a compatible blood group, not only currently eligible
+      // donors, so members can see the eligibility countdown on each donor card.
+      const compatibleGroups = receive[group];
+      if (!compatibleGroups?.length) throw new Error('Please choose a valid blood group.');
+      const donorResults = await Promise.all(compatibleGroups.map(p_blood_group =>
+        db.rpc('get_lifedrop_donor_cards', {
+          p_blood_group,
+          p_location: location.trim() || null
+        })
+      ));
+      for (const result of donorResults) {
+        if (result.error) throw result.error;
+      }
+      const donors = donorResults.flatMap(result => result.data || []);
+      const uniqueDonors = [...new Map(donors.map(d => [d.donor_id, d])).values()];
+      const { data: ratingRows, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
+      if (ratingError) throw ratingError;
+      const ratings = new Map((ratingRows || []).map(r => [r.donor_id, r]));
+      uniqueDonors.sort((a, b) => {
+        const ea = donorEligibilityInfo(a.last_donation_date).eligible ? 0 : 1;
+        const eb = donorEligibilityInfo(b.last_donation_date).eligible ? 0 : 1;
+        return ea - eb || String(a.donor_name || '').localeCompare(String(b.donor_name || ''));
+      });
+
+      if (!uniqueDonors.length) {
+        results.innerHTML = '<div class="panel empty-state"><h3>No compatible donors found</h3><p>Try another location or check again later.</p></div>';
         return;
       }
-      results.innerHTML = `<section class="panel"><div class="section-heading"><div><p class="eyebrow">COMPATIBLE DONORS</p><h2>Matching donor list</h2><p class="muted">${data.length} donor match(es) returned by BloodDrop.</p></div><span class="soft-chip">${esc(group)} requested</span></div></section>
-        <div class="donor-grid">${data.map(d => {
+
+      results.innerHTML = `<section class="panel"><div class="section-heading"><div><p class="eyebrow">COMPATIBLE DONORS</p><h2>Matching donor list</h2><p class="muted">${uniqueDonors.length} compatible donor(s) found. Eligible-by-date donors appear first.</p></div><span class="soft-chip">${esc(group)} requested</span></div></section>
+        <div class="donor-grid">${uniqueDonors.map(d => {
           const name = d.donor_name || 'BloodDrop Donor';
           const locationText = d.donor_location || 'Location not provided';
           const initialsText = name.trim().split(/\s+/).slice(0,2).map(x => x[0] || '').join('').toUpperCase();
-          return `<article class="donor-card"><div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div><h3>${esc(name)}</h3><span class="soft-chip">Compatible result</span></div></div><div class="donor-meta"><span>⌖ ${esc(locationText)}</span><span>♥ Requested group: ${esc(group)}</span></div><button type="button" class="btn primary" data-send-request="${esc(d.donor_id)}" data-blood-group="${esc(group)}" data-donor-name="${esc(name)}" data-donor-location="${esc(locationText)}">Send Blood Request</button></article>`;
-        }).join('')}</div>`;
+          const rating = ratings.get(d.donor_id);
+          const average = Number(rating?.average_rating || 0);
+          const reviewCount = Number(rating?.review_count || 0);
+          const ratingWidth = Math.max(0, Math.min(100, average / 5 * 100));
+          const eligibility = donorEligibilityInfo(d.last_donation_date);
+          const eligibilityClass = eligibility.eligible ? 'eligibility-ready' : 'eligibility-wait';
+          const lastDonation = d.last_donation_date ? esc(String(d.last_donation_date).slice(0, 10)) : 'Not provided';
+          return `<article class="donor-card donor-card-public">
+            <div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div class="donor-card-title"><h3>${esc(name)}</h3><span class="soft-chip">${esc(d.blood_group || 'Blood group not set')}</span></div></div>
+            <div class="public-donor-rating" aria-label="${average.toFixed(1)} out of 5, ${reviewCount} reviews">
+              <span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span>
+              <small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>
+            </div>
+            <div class="donor-meta"><span>⌖ ${esc(locationText)}</span><span>♥ Requested group: ${esc(group)}</span></div>
+            <div class="donor-eligibility ${eligibilityClass}">
+              <strong>${eligibility.eligible ? '✓ ' : '◷ '}${esc(eligibility.label)}</strong>
+              <small>${esc(eligibility.detail)}</small>
+              <small>Last donation: ${lastDonation}</small>
+            </div>
+            <button type="button" class="btn primary" ${eligibility.eligible ? '' : 'disabled'} data-send-request="${esc(d.donor_id)}" data-blood-group="${esc(group)}" data-donor-name="${esc(name)}" data-donor-location="${esc(locationText)}">${eligibility.eligible ? 'Send Blood Request' : 'Not yet eligible'}</button>
+          </article>`;
+        }).join('')}</div>
+        <p class="note">The 90-day countdown is a date-based guide only. It does not confirm medical fitness to donate. A qualified healthcare professional must confirm eligibility before donation.</p>`;
       bindPage();
     } catch (error) {
       console.error('Donor search error:', error);
-      results.innerHTML = `<div class="panel"><h3>Unable to search donors</h3><p>${esc(error.message || 'Please try again.')}</p></div>`;
+      results.innerHTML = `<div class="panel"><h3>Unable to load donor cards</h3><p>${esc(error.message || 'Please try again.')}</p></div>`;
     }
   };
 
