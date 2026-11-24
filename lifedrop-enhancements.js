@@ -1,4 +1,4 @@
-/* LifeDrop UI and feature enhancements.
+/* BloodDrop UI and feature enhancements.
    This file extends the existing app.js and keeps its current RPC workflow. */
 (function () {
   'use strict';
@@ -140,9 +140,9 @@
         results.innerHTML = '<div class="panel empty-state"><h3>No matching donors found</h3><p>Try another location or check again later.</p></div>';
         return;
       }
-      results.innerHTML = `<section class="panel"><div class="section-heading"><div><p class="eyebrow">COMPATIBLE DONORS</p><h2>Matching donor list</h2><p class="muted">${data.length} donor match(es) returned by LifeDrop.</p></div><span class="soft-chip">${esc(group)} requested</span></div></section>
+      results.innerHTML = `<section class="panel"><div class="section-heading"><div><p class="eyebrow">COMPATIBLE DONORS</p><h2>Matching donor list</h2><p class="muted">${data.length} donor match(es) returned by BloodDrop.</p></div><span class="soft-chip">${esc(group)} requested</span></div></section>
         <div class="donor-grid">${data.map(d => {
-          const name = d.donor_name || 'LifeDrop Donor';
+          const name = d.donor_name || 'BloodDrop Donor';
           const locationText = d.donor_location || 'Location not provided';
           const initialsText = name.trim().split(/\s+/).slice(0,2).map(x => x[0] || '').join('').toUpperCase();
           return `<article class="donor-card"><div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div><h3>${esc(name)}</h3><span class="soft-chip">Compatible result</span></div></div><div class="donor-meta"><span>⌖ ${esc(locationText)}</span><span>♥ Requested group: ${esc(group)}</span></div><button type="button" class="btn primary" data-send-request="${esc(d.donor_id)}" data-blood-group="${esc(group)}" data-donor-name="${esc(name)}" data-donor-location="${esc(locationText)}">Send Blood Request</button></article>`;
@@ -165,7 +165,7 @@
       <label>Hospital / location<input name="location" required maxlength="180" value="${esc(defaultLocation)}" placeholder="Hospital or area"></label>
       <label>Contact phone<input name="contact_phone" required maxlength="30" value="${esc(myProfile.phone || '')}" placeholder="Your phone number"></label>
       <label>Additional details<textarea name="details" maxlength="1000" placeholder="Optional details"></textarea></label>
-      <p class="hint">Please confirm details before submitting. This request will be sent through your existing LifeDrop request workflow.</p>
+      <p class="hint">Please confirm details before submitting. This request will be sent through your existing BloodDrop request workflow.</p>
       <div class="modal-actions"><button type="button" class="btn outline" data-modal-cancel>Cancel</button><button type="submit" class="btn primary">Submit Request</button></div>
     </form>`;
     modal(`Request blood${donorName ? ` from ${donorName}` : ''}`, body);
@@ -180,7 +180,7 @@
       const submit = event.currentTarget.querySelector('[type="submit"]');
       submit.disabled = true; submit.textContent = 'Submitting…';
       try {
-        const { data, error } = await db.rpc('send_lifedrop_donor_request', {
+        const { data, error } = await db.rpc('send_lifedrop_donor_request_v2', {
           p_donor_id: donorId,
           p_patient_name: String(values.patient_name).trim(),
           p_blood_group: bloodGroup,
@@ -228,8 +228,8 @@
   async function supportPage() {
     const { data: conversations, error } = await db.from('support_conversations').select('*').eq('user_id', session.user.id).order('updated_at', { ascending: false });
     if (error) throw error;
-    const list = (conversations || []).map(c => `<button class="conversation-row" type="button" data-support-open="${esc(c.id)}"><span><b>${esc(c.subject || 'LifeDrop support')}</b><p>${esc(c.status || 'open')} · Updated ${esc(new Date(c.updated_at || c.created_at).toLocaleString())}</p></span><span class="soft-chip">Open chat →</span></button>`).join('');
-    return `<section class="panel"><p class="eyebrow">WE ARE HERE TO HELP</p><h2>Help & Support</h2><p class="muted">Send a message to the LifeDrop admin team. Please do not share passwords or sensitive medical documents.</p><button class="btn primary" type="button" data-support-new>＋ Start a conversation</button></section><section class="panel"><h2>Your conversations</h2>${list || '<p class="empty-state">No support conversations yet. Start a new conversation when you need help.</p>'}</section>`;
+    const list = (conversations || []).map(c => `<button class="conversation-row" type="button" data-support-open="${esc(c.id)}"><span><b>${esc(c.subject || 'BloodDrop support')}</b><p>${esc(c.status || 'open')} · Updated ${esc(new Date(c.updated_at || c.created_at).toLocaleString())}</p></span><span class="soft-chip">Open chat →</span></button>`).join('');
+    return `<section class="panel"><p class="eyebrow">WE ARE HERE TO HELP</p><h2>Help & Support</h2><p class="muted">Send a message to the BloodDrop admin team. Please do not share passwords or sensitive medical documents.</p><button class="btn primary" type="button" data-support-new>＋ Start a conversation</button></section><section class="panel"><h2>Your conversations</h2>${list || '<p class="empty-state">No support conversations yet. Start a new conversation when you need help.</p>'}</section>`;
   }
 
   async function supportInboxPage() {
@@ -306,7 +306,7 @@
           await renderSupportThread();
         }
       } catch (error) {
-        content.innerHTML = `<section class="panel"><h2>Support chat setup required</h2><p>${esc(error.message || 'Support tables are not available.')}</p><p class="muted">Ask the project administrator to run the optional support migration in optional_features.sql. Existing LifeDrop functions and tables are not changed by that migration.</p></section>`;
+        content.innerHTML = `<section class="panel"><h2>Support chat setup required</h2><p>${esc(error.message || 'Support tables are not available.')}</p><p class="muted">Ask the project administrator to run the optional support migration in optional_features.sql. Existing BloodDrop functions and tables are not changed by that migration.</p></section>`;
       }
     } else {
       await originalRenderPage();
