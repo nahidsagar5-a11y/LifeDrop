@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f3f6fb">
-  <meta name="description" content="LifeDrop connects blood requesters with compatible donors.">
-  <title>LifeDrop | Online Blood Donation</title>
+  <meta name="description" content="BloodDrop connects blood requesters with compatible donors.">
+  <title>BloodDrop | Online Blood Donation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -14,14 +14,14 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" aria-label="LifeDrop home"><span class="brand-mark">+</span> LifeDrop</a>
+    <a class="brand" href="#" aria-label="BloodDrop home"><span class="brand-mark">+</span> BloodDrop</a>
     <span class="tagline">Give blood. Give life.</span>
     <div id="header-user"></div>
   </header>
 
   <main class="container">
     <section id="config-view" class="panel hidden">
-      <h2>Connect LifeDrop to Supabase</h2>
+      <h2>Connect BloodDrop to Supabase</h2>
       <p>Please check your config.js file. Supabase Project URL and Publishable Key are required.</p>
     </section>
 
@@ -44,14 +44,14 @@
         </div>
         <form id="login-form" class="auth-form">
           <h2>Welcome back</h2>
-          <p class="muted">Sign in to continue to your LifeDrop account.</p>
+          <p class="muted">Sign in to continue to your BloodDrop account.</p>
           <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
           <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
           <button type="submit" class="btn primary full">Login</button>
         </form>
         <form id="signup-form" class="auth-form hidden">
           <h2>Create account</h2>
-          <p class="muted">Join the LifeDrop donor community.</p>
+          <p class="muted">Join the BloodDrop donor community.</p>
           <label>Full name<input name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
           <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
           <label>Password<input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required></label>
@@ -61,9 +61,9 @@
         </form>
       </div>
       <section id="public-admin-card" class="panel public-admin-card">
-        <p class="eyebrow">MEET THE ADMIN</p><div class="admin-public-avatar" id="public-admin-avatar"><span>NS</span><img id="public-admin-photo" alt="LifeDrop Admin profile photo" hidden></div>
-        <h2>Nahid Sagar</h2><p class="soft-chip">LifeDrop Project Admin</p>
-        <p class="muted">Helping people connect with blood donors through LifeDrop.</p>
+        <p class="eyebrow">MEET THE ADMIN</p><div class="admin-public-avatar" id="public-admin-avatar"><span>NS</span><img id="public-admin-photo" alt="BloodDrop Admin profile photo" hidden></div>
+        <h2>Nahid Sagar</h2><p class="soft-chip">BloodDrop Project Admin</p>
+        <p class="muted">Helping people connect with blood donors through BloodDrop.</p>
         <div id="public-admin-contact" class="public-admin-contact">Loading admin contact…</div>
         <button type="button" class="btn outline" id="public-admin-contact-toggle">Contact Admin</button>
       </section>
@@ -87,7 +87,7 @@
 
     <section id="app-view" class="hidden">
       <div class="welcome-row">
-        <div><p class="eyebrow">YOUR LIFE DROP SPACE</p><h1 id="welcome-title">Dashboard</h1></div>
+        <div><p class="eyebrow">YOUR BLOOD DROP SPACE</p><h1 id="welcome-title">Dashboard</h1></div>
         <div class="welcome-actions">
           <button id="notification-bell" type="button" class="icon-btn" aria-label="Open notifications" title="Notifications">🔔<span id="notification-count" class="notification-count hidden">0</span></button>
           <button id="logout-btn" type="button" class="btn outline">Log out</button>
@@ -98,14 +98,15 @@
     </section>
   </main>
 
-  <footer>LifeDrop Blood Donation Management System <span>•</span> Academic demonstration project</footer>
+  <footer>BloodDrop Blood Donation Management System <span>•</span> Academic demonstration project</footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="modal-root"></div>
   <script src="config.js?v=7"></script>
-  <script src="app.js?v=17"></script>
-  <script src="admin-management.js?v=17"></script>
+  <script src="app.js?v=18"></script>
+  <script src="admin-management.js?v=18"></script>
   <script src="lifedrop-enhancements.js?v=1"></script>
-  <script src="lifedrop-final-upgrades.js?v=1"></script>
-  <script src="lifedrop-public-admin.js?v=1"></script>
+  <script src="lifedrop-final-upgrades.js?v=2"></script>
+  <script src="lifedrop-public-admin.js?v=2"></script>
+  <script src="lifedrop-community.js?v=2"></script>
 </body>
 </html>
