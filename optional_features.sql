@@ -313,3 +313,26 @@ as $$
 $$;
 revoke all on function public.get_lifedrop_public_admin_profile() from public;
 grant execute on function public.get_lifedrop_public_admin_profile() to anon, authenticated;
+
+
+-- Public homepage can display ONLY the photo_path saved on the Admin profile.
+-- This does not make the whole profile-photos bucket or donor photos public.
+create or replace function public.lifedrop_is_public_admin_photo(p_object_name text)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.role = 'admin' and p.photo_path = p_object_name
+  );
+$$;
+revoke all on function public.lifedrop_is_public_admin_photo(text) from public;
+grant execute on function public.lifedrop_is_public_admin_photo(text) to anon, authenticated;
+
+drop policy if exists lifedrop_public_read_admin_profile_photo on storage.objects;
+create policy lifedrop_public_read_admin_profile_photo
+on storage.objects for select to anon, authenticated
+using (
+  bucket_id = 'profile-photos'
+  and public.lifedrop_is_public_admin_photo(name)
+);
