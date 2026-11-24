@@ -14,6 +14,15 @@
     return items;
   };
 
+  // The original app keeps a page list in its classic-script scope. Render the
+  // menu explicitly so the admin-only history page is always navigable.
+  window.renderNav = function () {
+    const nav = document.getElementById('nav');
+    if (!nav) return;
+    const items = window.pages();
+    nav.innerHTML = items.map(item => `<button type="button" class="${item === page ? 'active' : ''}" data-page="${safe(item)}">${safe(item)}</button>`).join('');
+  }; 
+
   window.dashboard = async function () {
     const original = await oldDashboard();
     return original.replace(/<article class="blood-group-card">([\s\S]*?)<\/article>/g, (match, inner) => {
@@ -82,7 +91,17 @@
   };
 
   window.renderPage = async function () {
+    if (page === 'Donation History' && me?.role === 'admin') {
+      const root = document.getElementById('page-content');
+      if (root) root.innerHTML = '<div class="panel">Loading completed donation history…</div>';
+      await renderDonationHistory();
+      bindDashboardCards();
+      return;
+    }
     await oldRender();
+    if (page === 'Requests & Matches' && me?.role === 'admin') {
+      await appendCompletedHistoryToRequests();
+    }
     if (page === 'Search Blood' && selectedGroup) {
       const select = document.querySelector('#blood-search-form select[name="blood_group"]');
       if (select) select.value = selectedGroup;
@@ -96,10 +115,38 @@
   async function renderDonationHistory() {
     const root = document.getElementById('page-content');
     const { data, error } = await db.from('donations').select('*').order('created_at', {ascending:false}).limit(250);
-    if (error) { root.insertAdjacentHTML('beforeend', `<section class="panel"><p>${safe(error.message)}</p></section>`); return; }
+    if (error) { root.innerHTML = `<section class="panel"><h2>Completed donation history</h2><p>${safe(error.message)}</p></section>`; return; }
     const html = (data || []).map(d => `<article class="history-row"><div><b>Donation record</b><p>Units: ${safe(d.units ?? '—')} · Date: ${safe(d.donation_date || d.created_at || '—')} · Status: ${safe(d.status || 'Completed')}</p><small>${safe(d.id)}</small></div><button class="btn danger" type="button" data-delete-donation="${safe(d.id)}">Delete</button></article>`).join('');
-    root.insertAdjacentHTML('beforeend', `<section class="panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed donation history</h2><p class="muted">Deleting a record is permanent. Confirm before continuing.</p>${html || '<p class="empty-state">No donation records.</p>'}</section>`);
-    root.querySelectorAll('[data-delete-donation]').forEach(b => b.onclick = () => window.lifeDropConfirm('Delete donation record?','This permanently removes the selected history record.','Delete',async()=>{try{const {error}=await db.rpc('admin_delete_lifedrop_donation',{p_donation_id:b.dataset.deleteDonation});if(error)throw error;toast('Donation history deleted.');await window.renderPage();}catch(e){showError(e,'Delete donation error');}},true));
+    root.innerHTML = `<section class="panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed donation history</h2><p class="muted">Deleting a record is permanent. Confirm before continuing.</p>${html || '<p class="empty-state">No donation records.</p>'}</section>`;
+    bindDonationDeleteButtons(root);
+  }
+
+  async function appendCompletedHistoryToRequests() {
+    const root = document.getElementById('page-content');
+    if (!root) return;
+    const { data, error } = await db.from('donations').select('*').order('created_at', { ascending: false }).limit(250);
+    if (error) {
+      root.insertAdjacentHTML('beforeend', `<section class="panel"><h2>Completed Donation History</h2><p>${safe(error.message)}</p></section>`);
+      return;
+    }
+    const rows = (data || []).map(d => `<article class="history-row"><div><b>Completed donation</b><p>Units: ${safe(d.units ?? '—')} · Date: ${safe(d.donation_date || d.created_at || '—')} · Status: ${safe(d.status || 'Completed')}</p><small>Record: ${safe(d.id)}</small></div><button class="btn danger" type="button" data-delete-donation="${safe(d.id)}">Delete history</button></article>`).join('');
+    root.insertAdjacentHTML('beforeend', `<section class="panel requests-history-panel"><p class="eyebrow">ADMIN CONTROL</p><h2>Completed Donation History</h2><p class="muted">Delete a completed donation record when it should no longer remain in the history.</p>${rows || '<p class="empty-state">No completed donation history found.</p>'}</section>`);
+    bindDonationDeleteButtons(root);
+  }
+
+  function bindDonationDeleteButtons(root) {
+    root.querySelectorAll('[data-delete-donation]').forEach(b => {
+      if (b.dataset.boundDelete) return;
+      b.dataset.boundDelete = '1';
+      b.onclick = () => window.lifeDropConfirm('Delete donation record?', 'This permanently removes the selected donation history record.', 'Delete', async () => {
+        try {
+          const { error } = await db.rpc('admin_delete_lifedrop_donation', { p_donation_id: b.dataset.deleteDonation });
+          if (error) throw error;
+          toast('Donation history deleted.');
+          await window.renderPage();
+        } catch (e) { showError(e, 'Delete donation error'); }
+      }, true);
+    });
   }
 
   function bindDashboardCards() {
