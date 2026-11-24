@@ -614,3 +614,53 @@ end;
 $$;
 revoke all on function public.complete_lifedrop_donor_signup(text,date) from public;
 grant execute on function public.complete_lifedrop_donor_signup(text,date) to authenticated;
+
+-- Keep donor reviews when Admin removes a completed Requests & Matches history row.
+-- The review keeps its donor_id and reviewer_id; only the historical match link is cleared.
+alter table public.lifedrop_donor_reviews alter column match_id drop not null;
+do $$
+declare c record;
+begin
+  for c in
+    select conname from pg_constraint
+    where conrelid = 'public.lifedrop_donor_reviews'::regclass
+      and contype = 'f'
+      and conkey = array[(select attnum from pg_attribute where attrelid='public.lifedrop_donor_reviews'::regclass and attname='match_id')]::smallint[]
+  loop
+    execute format('alter table public.lifedrop_donor_reviews drop constraint %I', c.conname);
+  end loop;
+end $$;
+alter table public.lifedrop_donor_reviews
+  add constraint lifedrop_donor_reviews_match_id_fkey
+  foreign key (match_id) references public.matches(id) on delete set null;
+
+-- Delete only the completed history/match row. Keep reviews and reset the
+-- original request so Admin Requests & Matches can show it as PENDING.
+create or replace function public.admin_delete_lifedrop_completed_match(p_match_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_request_id uuid;
+begin
+  if not public.is_lifedrop_admin() then
+    raise exception 'Admin access required.';
+  end if;
+
+  select request_id into v_request_id
+  from public.matches
+  where id = p_match_id and lower(coalesce(status, '')) = 'completed'
+  for update;
+
+  if not found then
+    raise exception 'Completed donation record not found.';
+  end if;
+
+  delete from public.matches where id = p_match_id;
+  update public.blood_requests set status = 'Searching' where id = v_request_id;
+end;
+$$;
+revoke all on function public.admin_delete_lifedrop_completed_match(uuid) from public;
+grant execute on function public.admin_delete_lifedrop_completed_match(uuid) to authenticated;
+
