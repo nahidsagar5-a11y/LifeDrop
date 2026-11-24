@@ -1,4 +1,4 @@
-/*nsp LifeDrop admin donor/user management. Loaded after app.js. */
+/* LifeDrop admin donor/user management. Loaded after app.js. */
 (function () {
   if (typeof window === 'undefined') return;
 
