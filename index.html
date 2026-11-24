@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f3f6fb">
+  <meta name="description" content="BloodDrop connects blood requesters with compatible donors.">
+  <title>BloodDrop | Online Blood Donation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=11">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="BloodDrop home"><span class="brand-mark">+</span> BloodDrop</a>
+    <span class="tagline">Give blood. Give life.</span>
+    <div id="header-user"></div>
+  </header>
+
+  <main class="container">
+    <section id="config-view" class="panel hidden">
+      <h2>Connect BloodDrop to Supabase</h2>
+      <p>Please check your config.js file. Supabase Project URL and Publishable Key are required.</p>
+    </section>
+
+    <section id="auth-view" class="auth-layout">
+      <div class="hero">
+        <p class="eyebrow">A little help can save a life</p>
+        <h1>Be someone's<br><span>lifesaver.</span></h1>
+        <p>Find donors, submit blood requests and connect safely.</p>
+        <div class="hero-stats">
+          <div><b>8</b><small>Blood groups</small></div>
+          <div><b>24/7</b><small>Online access</small></div>
+        </div>
+        <div class="hero-trust"><span>✓</span> Community-powered blood donation support</div>
+      </div>
+
+      <div class="auth-card">
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="login">Login</button>
+          <button type="button" class="tab" data-tab="signup">Create account</button>
+        </div>
+        <form id="login-form" class="auth-form">
+          <h2>Welcome back</h2>
+          <p class="muted">Sign in to continue to your BloodDrop account.</p>
+          <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></label>
+          <button type="submit" class="btn primary full">Login</button>
+        </form>
+        <form id="signup-form" class="auth-form hidden">
+          <h2>Create account</h2>
+          <p class="muted">Join the BloodDrop donor community.</p>
+          <label>Full name<input name="name" type="text" autocomplete="name" placeholder="Your full name" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
+          <label>Password<input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" required></label>
+          <label>Blood Group<select name="blood_group" required>
+            <option value="">Select your blood group</option>
+            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+            <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+          </select></label>
+          <label>Last Donation Date<input name="last_donation_date" type="date" required></label>
+          <p class="hint wide">Every new account joins LifeDrop as a donor. Please enter accurate information.</p>
+          <button type="submit" class="btn primary full">Create account</button>
+          <p class="hint">After creating your account, you will be logged in automatically when email confirmation is disabled in Supabase.</p>
+        </form>
+      </div>
+      <section id="public-admin-card" class="panel public-admin-card">
+        <p class="eyebrow">MEET THE ADMIN</p><div class="admin-public-avatar" id="public-admin-avatar"><span>NS</span><img id="public-admin-photo" alt="BloodDrop Admin profile photo" hidden></div>
+        <h2>Nahid Sagar</h2><p class="soft-chip">BloodDrop Project Admin</p>
+        <p class="muted">Helping people connect with blood donors through BloodDrop.</p>
+        <div id="public-admin-contact" class="public-admin-contact">Loading admin contact…</div>
+        <button type="button" class="btn outline" id="public-admin-contact-toggle">Contact Admin</button>
+      </section>
+      <section class="panel landing-compat">
+        <p class="eyebrow">KNOW YOUR BLOOD GROUP</p>
+        <h2>Blood group compatibility guide</h2>
+        <p class="muted">A quick educational reference for red blood cell (RBC) compatibility.</p>
+        <div class="compat-grid">
+          <article class="compat-card"><strong>O−</strong><p><b>Receive:</b> O−</p><p><b>Donate to:</b> All 8 groups</p></article>
+          <article class="compat-card"><strong>O+</strong><p><b>Receive:</b> O−, O+</p><p><b>Donate to:</b> O+, A+, B+, AB+</p></article>
+          <article class="compat-card"><strong>A−</strong><p><b>Receive:</b> O−, A−</p><p><b>Donate to:</b> A−, A+, AB−, AB+</p></article>
+          <article class="compat-card"><strong>A+</strong><p><b>Receive:</b> O−, O+, A−, A+</p><p><b>Donate to:</b> A+, AB+</p></article>
+          <article class="compat-card"><strong>B−</strong><p><b>Receive:</b> O−, B−</p><p><b>Donate to:</b> B−, B+, AB−, AB+</p></article>
+          <article class="compat-card"><strong>B+</strong><p><b>Receive:</b> O−, O+, B−, B+</p><p><b>Donate to:</b> B+, AB+</p></article>
+          <article class="compat-card"><strong>AB−</strong><p><b>Receive:</b> O−, A−, B−, AB−</p><p><b>Donate to:</b> AB−, AB+</p></article>
+          <article class="compat-card"><strong>AB+</strong><p><b>Receive:</b> All 8 groups</p><p><b>Donate to:</b> AB+ only</p></article>
+        </div>
+        <p class="note">Educational information only. A qualified clinician must assess every transfusion, including blood typing and crossmatching. This guide covers red blood cell compatibility only, not plasma or whole blood.</p>
+      </section>
+
+      <section class="landing-showcase" aria-label="BloodDrop community features">
+        <div class="landing-showcase-head">
+          <span class="eyebrow">MORE THAN A DONOR DIRECTORY</span>
+          <h2>One community. <span>Countless second chances.</span></h2>
+          <p>BloodDrop helps people find support faster, connect with donors and keep every step organised.</p>
+        </div>
+        <div class="landing-feature-grid">
+          <article class="landing-feature feature-red"><span class="feature-icon">🩸</span><h3>Find matching donors</h3><p>Search by blood group and discover registered donors in the community.</p></article>
+          <article class="landing-feature feature-blue"><span class="feature-icon">🔒</span><h3>Privacy-conscious connection</h3><p>Personal contact details stay protected and are shared through approved connections.</p></article>
+          <article class="landing-feature feature-green"><span class="feature-icon">🤝</span><h3>Track every request</h3><p>Follow request progress, connected profiles and donation updates in one place.</p></article>
+          <article class="landing-feature feature-purple"><span class="feature-icon">⭐</span><h3>Celebrate helpers</h3><p>Share donor appreciation and community reviews to recognise people who help.</p></article>
+        </div>
+        <div class="landing-steps">
+          <div><b>01</b><span><strong>Create your account</strong><small>Join the BloodDrop community.</small></span></div>
+          <div><b>02</b><span><strong>Search or respond</strong><small>Find a matching blood group.</small></span></div>
+          <div><b>03</b><span><strong>Connect with care</strong><small>Coordinate safely and verify details.</small></span></div>
+        </div>
+        <p class="landing-disclaimer">BloodDrop is a connection platform, not a medical service. Always confirm donor eligibility and transfusion compatibility with qualified healthcare professionals.</p>
+      </section>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <div class="welcome-row">
+        <div><p class="eyebrow">YOUR BLOOD DROP SPACE</p><h1 id="welcome-title">Dashboard</h1></div>
+        <div class="welcome-actions">
+          <button id="notification-bell" type="button" class="icon-btn" aria-label="Open notifications" title="Notifications">🔔<span id="notification-count" class="notification-count hidden">0</span></button>
+          <button id="logout-btn" type="button" class="btn outline">Log out</button>
+        </div>
+      </div>
+      <nav id="nav" class="nav" aria-label="Main navigation"></nav>
+      <div id="page-content"></div>
+    </section>
+  </main>
+
+  <footer>BloodDrop Blood Donation Management System <span>•</span> Academic demonstration project</footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="modal-root"></div>
+  <script src="config.js?v=7"></script>
+  <script src="app.js?v=23"></script>
+  <script src="admin-management.js?v=19"></script>
+  <script src="lifedrop-enhancements.js?v=3"></script>
+  <script src="lifedrop-final-upgrades.js?v=3"></script>
+  <script src="lifedrop-public-admin.js?v=2"></script>
+  <script src="lifedrop-community.js?v=4"></script>
+</body>
+</html>
