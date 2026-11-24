@@ -422,7 +422,7 @@ begin
   if nullif(trim(p_patient_name),'') is null or nullif(trim(p_location),'') is null or nullif(trim(p_contact_phone),'') is null then raise exception 'Please complete all required fields.'; end if;
   if p_units not between 1 and 20 or p_needed_date < current_date then raise exception 'Invalid units or required date.'; end if;
   insert into public.blood_requests(requester_id,patient_name,blood_group,units,needed_date,location,contact_phone,details,status)
-  values(auth.uid(),trim(p_patient_name),p_blood_group,p_units,p_needed_date,trim(p_location),trim(p_contact_phone),nullif(trim(p_details),''),'Waiting for donor') returning id into v_request_id;
+  values(auth.uid(),trim(p_patient_name),p_blood_group,p_units,p_needed_date,trim(p_location),trim(p_contact_phone),nullif(trim(p_details),''),'Searching') returning id into v_request_id;
   insert into public.matches(request_id,requester_id,donor_id,status)
   values(v_request_id,auth.uid(),p_donor_id,'pending_donor') returning id into v_match_id;
   insert into public.notifications(user_id,title,message) values
@@ -577,3 +577,40 @@ begin
 end; $$;
 revoke all on function public.admin_delete_lifedrop_donor_review(uuid) from public;
 grant execute on function public.admin_delete_lifedrop_donor_review(uuid) to authenticated;
+
+
+-- 2026-11-24: Complete donor registration safely after email confirmation.
+-- The caller can update only their own profile, and cannot choose another role.
+create or replace function public.complete_lifedrop_donor_signup(
+  p_blood_group text,
+  p_last_donation_date date
+) returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Please log in to complete donor registration.';
+  end if;
+  if p_blood_group not in ('A+','A-','B+','B-','AB+','AB-','O+','O-') then
+    raise exception 'Please select a valid blood group.';
+  end if;
+  if p_last_donation_date is null or p_last_donation_date > current_date then
+    raise exception 'Please enter a valid last donation date.';
+  end if;
+
+  update public.profiles
+  set role = 'donor',
+      blood_group = p_blood_group,
+      last_donation_date = p_last_donation_date
+  where id = auth.uid()
+    and role <> 'admin';
+
+  if not found then
+    raise exception 'Your donor profile could not be updated.';
+  end if;
+end;
+$$;
+revoke all on function public.complete_lifedrop_donor_signup(text,date) from public;
+grant execute on function public.complete_lifedrop_donor_signup(text,date) to authenticated;
