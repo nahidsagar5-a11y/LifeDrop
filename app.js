@@ -1,4 +1,3 @@
-
 /* =========================================================
    LIFEDROP - COMPLETE APP.JS
    HTML + CSS + JavaScript + Supabase
