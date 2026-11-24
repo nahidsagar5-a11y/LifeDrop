@@ -264,3 +264,7 @@ tr:hover td{background:#fff8f9}
 @media(max-width:900px){.donor-search-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.search-hero{padding:23px 20px;border-radius:19px}.search-hero-icon{width:60px;height:60px;flex-basis:60px;border-radius:19px;font-size:29px}.search-panel{padding:20px}.search-form{grid-template-columns:1fr}.search-form .wide{grid-column:auto}.search-submit{width:100%}.donor-search-grid{grid-template-columns:1fr}.results-heading{align-items:flex-start;flex-direction:column}.donor-search-card{padding:17px}.search-step{font-size:17px}}
 @media(prefers-reduced-motion:reduce){.donor-search-card,.loading-pulse{animation:none;transition:none}}
+
+/* Always show the rating position beside the donor name, including new donors. */
+.public-donor-rating .rating-empty { color: #d7dce5; font-size: 14px; letter-spacing: 0; white-space: nowrap; }
+.public-donor-rating { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
