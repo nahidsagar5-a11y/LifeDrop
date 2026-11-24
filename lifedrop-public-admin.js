@@ -12,6 +12,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     details=data?.[0] || null;
     if(details){
       card.querySelector('h2').textContent=details.full_name || 'Nahid Sagar';
+      const photo = document.getElementById('public-admin-photo');
+      const initials = card.querySelector('.admin-public-avatar span');
+      if (photo && details.photo_path) {
+        const publicPhoto = client.storage.from('profile-photos').getPublicUrl(details.photo_path);
+        if (publicPhoto?.data?.publicUrl) {
+          photo.src = publicPhoto.data.publicUrl;
+          photo.hidden = false;
+          if (initials) initials.hidden = true;
+          photo.onerror = () => { photo.hidden = true; if (initials) initials.hidden = false; };
+        }
+      }
       area.textContent='Contact details are available below.';
       toggle.hidden=false;
     } else { area.textContent='Admin contact information is not available yet.'; toggle.hidden=true; }
