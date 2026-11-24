@@ -1,5 +1,5 @@
 /* =========================================================
-   LIFEDROP - COMPLETE APP.JS
+   BLOODDROP - COMPLETE APP.JS
    HTML + CSS + JavaScript + Supabase
 
    FEATURES:
@@ -85,7 +85,7 @@ function toast(message) {
   }, 3200);
 }
 
-function showError(error, context = 'LifeDrop') {
+function showError(error, context = 'BloodDrop') {
   console.error(context, error);
   toast(error?.message || 'Something went wrong.');
 }
@@ -735,7 +735,7 @@ async function dashboard() {
 
     <div class="panel">
 
-      <h2>Welcome to LifeDrop</h2>
+      <h2>Welcome to BloodDrop</h2>
 
       <p class="muted">
         Give blood. Give life. Find compatible blood donors easily.
@@ -859,6 +859,10 @@ async function runDonorSearch(bloodGroup, location = '') {
       return;
     }
 
+    const { data: ratingRows, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
+    if (ratingError) throw ratingError;
+    const ratings = new Map((ratingRows || []).map(x => [x.donor_id, x]));
+
     results.innerHTML = `
       <div class="panel">
 
@@ -885,7 +889,8 @@ async function runDonorSearch(bloodGroup, location = '') {
                 <tr>
 
                   <td>
-                    ${esc(donor.donor_name)}
+                    <strong>${esc(donor.donor_name)}</strong>
+                    <div class="donor-rating-inline" data-donor-rating="${esc(donor.donor_id)}"></div>
                   </td>
 
                   <td>
@@ -916,6 +921,12 @@ async function runDonorSearch(bloodGroup, location = '') {
       </div>
     `;
 
+    results.querySelectorAll('[data-donor-rating]').forEach(el => {
+      const r = ratings.get(el.dataset.donorRating);
+      const avg = Number(r?.average_rating || 0), count = Number(r?.review_count || 0);
+      const pct = Math.max(0, Math.min(100, avg / 5 * 100));
+      el.innerHTML = `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${pct}%">★★★★★</span></span><small class="rating-caption">${avg.toFixed(1)}/5 · ${count} review${count===1?'':'s'}</small>`;
+    });
     bindPage();
 
   } catch (error) {
@@ -1253,18 +1264,13 @@ async function adminRequests() {
           ${esc(status.toUpperCase())}
         </p>
 
-        ${status === 'candidate'
-          ? `
-            <button
-              class="btn primary"
-              type="button"
-              data-admin-connect="${esc(match.id)}">
-              Connect Donor
-            </button>
-          `
+        ${status === 'candidate' || status === 'pending_donor'
+          ? '<p>Waiting for the donor to confirm or decline this request.</p>'
           : status === 'connected'
-            ? '<p>Donor and requester are connected.</p>'
-            : '<p>Donation completed.</p>'
+            ? '<p>Donor and requester are connected. Both can manage completion or cancellation.</p>'
+            : status === 'cancelled'
+              ? `<p>Cancelled. Reason: ${esc(match.cancel_reason || 'Not provided')}</p>`
+              : '<p>Donation completed.</p>'
         }
 
       </div>
@@ -1518,7 +1524,7 @@ async function notificationsPage() {
       <div class="panel" style="margin-top:12px">
 
         <h3>
-          ${esc(item.title || 'LifeDrop Notification')}
+          ${esc(item.title || 'BloodDrop Notification')}
 
           <span class="pill">
             ${item.is_read === true ? 'Read' : 'Unread'}
