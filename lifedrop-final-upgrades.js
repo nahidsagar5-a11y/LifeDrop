@@ -54,15 +54,38 @@
         target.innerHTML = `<section class="panel empty-state"><h3>No ${safe(group)} donors found</h3><p>Try another location or blood group.</p></section>`;
         return;
       }
+      let ratingRows = [];
+      const { data: publicRatings, error: publicRatingsError } = await db.rpc('get_lifedrop_donor_ratings');
+      if (!publicRatingsError && Array.isArray(publicRatings)) ratingRows = publicRatings;
+      else {
+        const { data: reviews, error: reviewsError } = await db.from('lifedrop_donor_reviews').select('donor_id,rating');
+        if (!reviewsError) {
+          const totals = new Map();
+          for (const review of (reviews || [])) {
+            const key = String(review.donor_id);
+            const item = totals.get(key) || { donor_id: review.donor_id, review_count: 0, total: 0 };
+            item.review_count += 1; item.total += Number(review.rating) || 0; totals.set(key, item);
+          }
+          ratingRows = [...totals.values()].map(item => ({ donor_id: item.donor_id, review_count: item.review_count, average_rating: Math.round(item.total / item.review_count * 10) / 10 }));
+        }
+      }
+      const ratingMap = new Map(ratingRows.map(r => [String(r.donor_id), r]));
       const cards = await Promise.all(data.map(async d => {
         let photo = '';
         if (d.photo_path) {
           try { const result = await db.storage.from('profile-photos').createSignedUrl(d.photo_path, 600); photo = result.data?.signedUrl || ''; } catch (_) {}
         }
         const initials = (d.donor_name || 'LD').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+        const rating = ratingMap.get(String(d.donor_id));
+        const average = Number(rating?.average_rating || 0);
+        const reviewCount = Number(rating?.review_count || 0);
+        const ratingWidth = Math.max(0, Math.min(100, average / 5 * 100));
+        const ratingMarkup = reviewCount
+          ? `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span><small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>`
+          : `<span class="rating-stars rating-empty">☆☆☆☆☆</span><small class="rating-caption rating-unrated">No reviews yet</small>`;
         return `<article class="donor-card donor-detail-card">
           <button class="donor-card-open" type="button" data-donor-details="${safe(d.donor_id)}">
-            <div class="donor-card-head"><div class="avatar avatar-small">${photo ? `<img src="${safe(photo)}" alt="Donor profile photo">` : safe(initials)}</div><div><h3>${safe(d.donor_name || 'BloodDrop Donor')}</h3><span class="soft-chip">${safe(d.blood_group)}</span></div></div>
+            <div class="donor-card-head"><div class="avatar avatar-small">${photo ? `<img src="${safe(photo)}" alt="Donor profile photo">` : safe(initials)}</div><div><h3>${safe(d.donor_name || 'BloodDrop Donor')}</h3><div class="public-donor-rating">${ratingMarkup}</div><span class="soft-chip">${safe(d.blood_group)}</span></div></div>
             <div class="donor-meta"><span>⌖ ${safe(d.donor_location || 'Location not provided')}</span><span>Last donation: ${safe(d.last_donation_date || 'Not provided')}</span></div>
           </button>
           <div class="donor-card-actions"><button class="btn primary" type="button" data-send-request="${safe(d.donor_id)}" data-blood-group="${safe(group)}" data-donor-name="${safe(d.donor_name)}" data-donor-location="${safe(d.donor_location || '')}">Send Blood Request</button><button class="btn outline" type="button" data-donor-details="${safe(d.donor_id)}">View details</button></div>
