@@ -195,6 +195,32 @@ async function boot() {
     );
   }
 
+  // New registrations are donors. Sync the required signup details from
+  // Auth metadata after email confirmation or the first successful login.
+  const signupMeta = session.user.user_metadata || {};
+  if (signupMeta.lifedrop_account_type === 'donor' && profile.role !== 'admin') {
+    const needsSync =
+      profile.role !== 'donor' ||
+      !profile.blood_group ||
+      !profile.last_donation_date;
+    if (needsSync) {
+      const { error: syncError } = await db.rpc('complete_lifedrop_donor_signup', {
+        p_blood_group: signupMeta.blood_group,
+        p_last_donation_date: signupMeta.last_donation_date
+      });
+      if (syncError) {
+        console.warn('Donor profile sync needs attention:', syncError);
+      } else {
+        const { data: syncedProfile, error: reloadError } = await db
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (!reloadError && syncedProfile) profile = syncedProfile;
+      }
+    }
+  }
+
   me = profile;
   myProfile = profile;
 
@@ -240,7 +266,19 @@ async function signupSubmit(event) {
   const email = String(form.get('email') || '').trim();
   const password = String(form.get('password') || '');
   const fullName = String(form.get('name') || '').trim();
-  const role = String(form.get('role') || 'user');
+  const bloodGroup = String(form.get('blood_group') || '').trim();
+  const lastDonationDate = String(form.get('last_donation_date') || '').trim();
+  const today = new Date();
+  const todayText = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0')
+  ].join('-');
+
+  if (!fullName) return toast('Please enter your full name.');
+  if (!groups.includes(bloodGroup)) return toast('Please select your blood group.');
+  if (!lastDonationDate) return toast('Please enter your last donation date.');
+  if (lastDonationDate > todayText) return toast('Last donation date cannot be in the future.');
 
   try {
     const { data, error } = await db.auth.signUp({
@@ -249,7 +287,10 @@ async function signupSubmit(event) {
       options: {
         data: {
           full_name: fullName,
-          role
+          role: 'donor',
+          lifedrop_account_type: 'donor',
+          blood_group: bloodGroup,
+          last_donation_date: lastDonationDate
         }
       }
     });
@@ -686,92 +727,63 @@ async function dashboard() {
     donors,
     requests,
     connected,
-    unread
+    reviews
   ] = await Promise.all([
     getRegisteredDonorCount(),
     countActiveRequests(),
     countRows('matches', [
-      {
-        method: 'eq',
-        args: ['status', 'connected']
-      }
+      { method: 'eq', args: ['status', 'connected'] }
     ]),
-    countRows('notifications', [
-      {
-        method: 'eq',
-        args: ['user_id', session.user.id]
-      },
-      {
-        method: 'eq',
-        args: ['is_read', false]
-      }
-    ])
+    countRows('lifedrop_donor_reviews', [])
   ]);
 
   return `
-    <div class="stats">
-
-      <div class="stat-card">
+    <div class="stats dashboard-stats">
+      <button class="stat-card stat-donors" type="button" data-goto="${me.role === 'admin' ? 'Donors' : 'Search Blood'}">
+        <span class="stat-icon">🩸</span>
         <span>Registered Donors</span>
         <b>${donors}</b>
-      </div>
+        <small>Tap to view donors ↗</small>
+      </button>
 
-      <div class="stat-card">
+      <button class="stat-card stat-requests" type="button" data-goto="${me.role === 'admin' ? 'Requests & Matches' : 'My Requests'}">
+        <span class="stat-icon">⏳</span>
         <span>Pending Blood Requests</span>
         <b>${requests}</b>
-      </div>
+        <small>Tap to view requests ↗</small>
+      </button>
 
-      <div class="stat-card">
+      <button class="stat-card stat-matches" type="button" data-goto="Connected Profiles">
+        <span class="stat-icon">🤝</span>
         <span>Connected Matches</span>
         <b>${connected}</b>
-      </div>
+        <small>Tap to view connections ↗</small>
+      </button>
 
-      <div class="stat-card">
-        <span>Unread Notifications</span>
-        <b>${unread}</b>
-      </div>
-
+      <button class="stat-card stat-reviews" type="button" data-goto="Donor Reviews">
+        <span class="stat-icon">⭐</span>
+        <span>Donor Reviews</span>
+        <b>${reviews}</b>
+        <small>Tap to read reviews ↗</small>
+      </button>
     </div>
 
-    <div class="panel">
-
+    <section class="panel dashboard-welcome">
+      <p class="eyebrow">WELCOME TO THE COMMUNITY</p>
       <h2>Welcome to BloodDrop</h2>
-
-      <p class="muted">
-        Give blood. Give life. Find compatible blood donors easily.
-      </p>
-
+      <p class="muted">Give blood. Give life. Find compatible blood donors easily.</p>
       <div class="actions">
-
-        <button
-          class="btn primary"
-          data-goto="Search Blood"
-          type="button">
-          Search Blood
-        </button>
-
+        <button class="btn primary" data-goto="Search Blood" type="button">🩸 Search Blood</button>
         ${me.role === 'admin' ? `
-          <button
-            class="btn outline"
-            data-goto="Requests & Matches"
-            type="button">
-            Manage Requests
-          </button>
+          <button class="btn outline" data-goto="Requests & Matches" type="button">Manage Requests</button>
+          <button class="btn outline" data-goto="Manage Reviews" type="button">Manage Reviews</button>
         ` : ''}
-
-        <button
-          class="btn outline"
-          data-goto="My Profile"
-          type="button">
-          My Profile
-        </button>
-
+        <button class="btn outline" data-goto="My Profile" type="button">My Profile</button>
       </div>
-    </div>
+    </section>
 
     <div class="note">
-      Blood compatibility and donor eligibility must be confirmed
-      by qualified medical professionals.
+      Blood compatibility and donor eligibility must be confirmed by qualified medical professionals.
     </div>
   `;
 }
@@ -1016,7 +1028,7 @@ async function sendDonorRequest(
 
   try {
     const { data, error } = await db.rpc(
-      'send_lifedrop_donor_request',
+      'send_lifedrop_donor_request_v2',
       {
         p_donor_id: donorId,
         p_patient_name: patientName.trim(),
