@@ -217,11 +217,9 @@
           const eligibilityClass = eligibility.eligible ? 'eligibility-ready' : 'eligibility-wait';
           const lastDonation = d.last_donation_date ? esc(String(d.last_donation_date).slice(0, 10)) : 'Not provided';
           return `<article class="donor-card donor-card-public">
-            <div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div class="donor-card-title"><h3>${esc(name)}</h3><span class="soft-chip">${esc(d.blood_group || 'Blood group not set')}</span></div></div>
-            <div class="public-donor-rating" aria-label="${average.toFixed(1)} out of 5, ${reviewCount} reviews">
-              <span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span>
-              <small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>
-            </div>
+            <div class="donor-card-head"><div class="avatar avatar-small">${esc(initialsText || 'LD')}</div><div class="donor-card-title"><div class="donor-name-rating"><h3>${esc(name)}</h3><div class="public-donor-rating" aria-label="${reviewCount ? `${average.toFixed(1)} out of 5, ${reviewCount} reviews` : 'No ratings yet'}">
+              ${reviewCount ? `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${ratingWidth}%">★★★★★</span></span><small class="rating-caption">${average.toFixed(1)}/5 · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</small>` : '<small class="rating-caption rating-unrated">☆ No ratings yet</small>'}
+            </div></div><span class="soft-chip">${esc(d.blood_group || 'Blood group not set')}</span></div></div>
             <div class="donor-meta"><span>⌖ ${esc(locationText)}</span><span>♥ Requested group: ${esc(group)}</span></div>
             <div class="donor-eligibility ${eligibilityClass}">
               <strong>${eligibility.eligible ? '✓ ' : '◷ '}${esc(eligibility.label)}</strong>
