@@ -238,3 +238,78 @@ begin
     end if;
   end if;
 end $$;
+
+
+
+-- LifeDrop safe add-on: donor detail cards and admin history controls.
+-- Run this AFTER reviewing; it does not drop existing tables or functions.
+
+create or replace function public.get_lifedrop_donor_cards(p_blood_group text, p_location text default null)
+returns table(
+  donor_id uuid, donor_name text, donor_location text, donor_phone text,
+  blood_group text, last_donation_date date, photo_path text
+)
+language sql stable security definer set search_path = public
+as $$
+  select p.id, p.full_name, p.location, p.phone, p.blood_group,
+         p.last_donation_date, p.photo_path
+  from public.profiles p
+  where p.role = 'donor'
+    and p.blood_group = p_blood_group
+    and (p_location is null or p.location ilike '%' || p_location || '%')
+  order by p.full_name;
+$$;
+revoke all on function public.get_lifedrop_donor_cards(text,text) from public;
+grant execute on function public.get_lifedrop_donor_cards(text,text) to authenticated;
+
+-- Allow signed-in members to view donor profile photos shown in donor cards.
+-- This policy is limited to the existing private profile-photos bucket.
+drop policy if exists lifedrop_profile_photos_read_members on storage.objects;
+create policy lifedrop_profile_photos_read_members
+on storage.objects for select to authenticated
+using (bucket_id = 'profile-photos');
+
+create or replace function public.admin_delete_lifedrop_support_conversation(p_conversation_id uuid)
+returns void language plpgsql security definer set search_path = public
+as $$
+begin
+  if not public.is_lifedrop_admin() then raise exception 'Admin access required.'; end if;
+  delete from public.support_conversations where id = p_conversation_id;
+  if not found then raise exception 'Conversation not found.'; end if;
+end;
+$$;
+revoke all on function public.admin_delete_lifedrop_support_conversation(uuid) from public;
+grant execute on function public.admin_delete_lifedrop_support_conversation(uuid) to authenticated;
+
+create or replace function public.admin_delete_lifedrop_donation(p_donation_id uuid)
+returns void language plpgsql security definer set search_path = public
+as $$
+begin
+  if not public.is_lifedrop_admin() then raise exception 'Admin access required.'; end if;
+  delete from public.donations where id = p_donation_id;
+  if not found then raise exception 'Donation record not found.'; end if;
+end;
+$$;
+revoke all on function public.admin_delete_lifedrop_donation(uuid) from public;
+grant execute on function public.admin_delete_lifedrop_donation(uuid) to authenticated;
+
+-- Admin can delete any notification; members retain their existing own-delete policy.
+drop policy if exists lifedrop_admin_delete_notifications on public.notifications;
+create policy lifedrop_admin_delete_notifications
+on public.notifications for delete to authenticated
+using (public.is_lifedrop_admin());
+
+-- Public homepage admin card. Only the single admin profile's contact card is exposed.
+create or replace function public.get_lifedrop_public_admin_profile()
+returns table(full_name text, email text, phone text, photo_path text, about text)
+language sql stable security definer set search_path = public
+as $$
+  select p.full_name, p.email, p.phone, p.photo_path,
+         'LifeDrop Project Admin — helping people connect with blood donors safely.'
+  from public.profiles p
+  where p.role = 'admin'
+  order by p.created_at asc
+  limit 1;
+$$;
+revoke all on function public.get_lifedrop_public_admin_profile() from public;
+grant execute on function public.get_lifedrop_public_admin_profile() to anon, authenticated;
