@@ -57,3 +57,197 @@
 .admin-review-card{margin-top:12px}
 .admin-review-card .workflow-actions{max-width:420px}
 .review-card .review-stars .rating-stars{font-size:17px}
+
+
+/* =========================================================
+   LIFEDROP COLOR-OUTLINE REDESIGN
+   Clear section borders, accessible contrast and gentle motion
+========================================================= */
+:root{
+  --outline-red:#ef6477;--outline-blue:#5b8def;--outline-green:#35a879;
+  --outline-orange:#e8a23a;--outline-purple:#9872d8;--outline-teal:#35aeb0;
+  --ink:#172338;--muted:#64748b;
+}
+body{
+  background:radial-gradient(circle at 4% 7%,rgba(239,100,119,.09),transparent 23rem),
+  radial-gradient(circle at 96% 20%,rgba(91,141,239,.08),transparent 25rem),#f5f7fc;
+  color:#172338;
+}
+.topbar{border-bottom:2px solid #e8a0ad;box-shadow:0 5px 24px rgba(28,42,65,.055)}
+.container{animation:pageEnter .45s ease both}
+@keyframes pageEnter{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+
+/* Visible colour outlines on the page sections and content components. */
+.panel,.auth-card,.profile-card,.stat-card,.donor-card,.review-card,
+.workflow-card,.compat-card,.blood-group-card,.conversation-row,
+.meet-admin-card,.modal-card,.chat-thread,.chat-bubble{
+  border-width:1.5px;border-style:solid;border-color:#cbd5e1;
+}
+.panel:nth-of-type(6n+1),.auth-card{border-color:#ef9aa7}
+.panel:nth-of-type(6n+2){border-color:#8bb2f4}
+.panel:nth-of-type(6n+3){border-color:#82c9a8}
+.panel:nth-of-type(6n+4){border-color:#e9bd75}
+.panel:nth-of-type(6n+5){border-color:#b5a0e5}
+.panel:nth-of-type(6n){border-color:#7bc9c7}
+.auth-card{box-shadow:0 16px 38px rgba(217,47,73,.09)}
+.public-admin-card{border-color:#9b83dc}
+.landing-compat{border-color:#62b7b5}
+.dashboard-welcome{border-color:#e49aa6;background:linear-gradient(135deg,#fff 0%,#fff8f9 100%)}
+.meet-admin-card{border-color:#e99aaa}
+.nav{border:1px solid #b7c9e5;background:#eaf0fa}
+.nav button{border:1px solid transparent}
+.nav button.active{border-color:#e98b9a;background:#fff;box-shadow:0 4px 12px rgba(217,47,73,.10)}
+.section-heading{padding-bottom:10px;border-bottom:1px solid #dbe4f0}
+.form-grid label,.auth-form label,.modal-form label{color:#26364d}
+input,select,textarea,.auth-form input,.form-grid input,.form-grid select,.form-grid textarea{
+  border:1.5px solid #b8c8dc;color:#172338;background:#fff;
+}
+input:hover,select:hover,textarea:hover{border-color:#7e9bc2}
+input:focus,select:focus,textarea:focus{border-color:#dc5269;box-shadow:0 0 0 4px rgba(220,82,105,.12)}
+.btn.outline{border:1.5px solid #8ea6c5;color:#26364d}
+.btn.outline:hover{border-color:#d94b63;background:#fff7f8}
+.btn.primary{box-shadow:0 7px 18px rgba(217,47,73,.20)}
+.icon-btn{border:1.5px solid #8ea6c5}
+.table-wrap{border:1.5px solid #a9bdd9;border-radius:14px;overflow:auto}
+th{background:#f0f4fb;color:#3d506b}
+td{color:#27364b}
+tr:hover td{background:#fff8f9}
+.note{border-width:1.5px;border-color:#e8bd72;background:#fffaf0;color:#75541c}
+.empty-state{border:1.5px dashed #8fa8c8;border-radius:16px;background:#f8fbff}
+.modal-card{border-color:#e58d9d}
+.modal-form input,.modal-form select,.modal-form textarea{border:1.5px solid #b8c8dc}
+
+/* Each dashboard tile has its own outline and colour identity. */
+.dashboard-stats .stat-card{
+  appearance:none;width:100%;min-height:158px;text-align:left;cursor:pointer;gap:7px;
+  padding:19px;border-width:2px;border-radius:19px;background:#fff;
+  box-shadow:0 9px 24px rgba(24,35,52,.055);
+  transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+}
+.dashboard-stats .stat-card:hover{transform:translateY(-5px);box-shadow:0 16px 30px rgba(24,35,52,.12)}
+.dashboard-stats .stat-card:active{transform:scale(.985)}
+.dashboard-stats .stat-card .stat-icon{font-size:24px;line-height:1.2}
+.dashboard-stats .stat-card span:not(.stat-icon){font-size:13px;font-weight:800}
+.dashboard-stats .stat-card b{font-size:32px;line-height:1.2}
+.dashboard-stats .stat-card small{font-size:11px;font-weight:700}
+.stat-donors{border-color:#6c9be9!important;color:#2456a5}
+.stat-donors b,.stat-donors .stat-icon{color:#3975d2}
+.stat-requests{border-color:#e9ad54!important;color:#8a5a12}
+.stat-requests b,.stat-requests .stat-icon{color:#d88a1b}
+.stat-matches{border-color:#58b88b!important;color:#176b49}
+.stat-matches b,.stat-matches .stat-icon{color:#239b68}
+.stat-reviews{border-color:#c08be2!important;color:#71429c}
+.stat-reviews b,.stat-reviews .stat-icon{color:#a052ca}
+.stat-donors:after,.stat-requests:after,.stat-matches:after,.stat-reviews:after{display:none}
+
+/* Different colour outlines for donor, review and blood-group cards. */
+.donor-card{border-color:#e78e9d;box-shadow:0 8px 22px rgba(24,35,52,.06)}
+.donor-card:nth-child(4n+2){border-color:#79a5ec}
+.donor-card:nth-child(4n+3){border-color:#75bd99}
+.donor-card:nth-child(4n){border-color:#b49bdf}
+.blood-group-card{border-width:2px;border-color:#e98c9d}
+.blood-group-card:nth-child(8n+2){border-color:#76a3e8}
+.blood-group-card:nth-child(8n+3){border-color:#68b99b}
+.blood-group-card:nth-child(8n+4){border-color:#e4b05d}
+.blood-group-card:nth-child(8n+5){border-color:#ad91df}
+.blood-group-card:nth-child(8n+6){border-color:#55b7b5}
+.blood-group-card:nth-child(8n+7){border-color:#e48ba9}
+.blood-group-card:nth-child(8n){border-color:#86a2c5}
+.compat-card{border-width:1.5px;border-color:#e68e9d}
+.compat-card:nth-child(4n+2){border-color:#83a8e9}
+.compat-card:nth-child(4n+3){border-color:#7cbea0}
+.compat-card:nth-child(4n){border-color:#b39cdd}
+.review-card{border-color:#bd91dc;background:linear-gradient(145deg,#fff,#fcf8ff)}
+.review-stars,.star-picker .star-pick.selected{color:#e32645}
+.rating-stars .stars-value{color:#e32645}
+.workflow-card{border-color:#8baee7}
+.workflow-card:nth-child(3n+2){border-color:#78bf9c}
+.workflow-card:nth-child(3n){border-color:#e7ad60}
+.profile-card{border-color:#83bdbb}
+.conversation-row{border-color:#a9a0df}
+.chat-bubble{border-color:#91acd2}
+.chat-bubble.mine{border-color:#ef9aa7}
+
+/* Restrained transitions and reveal animations. */
+.stat-card,.donor-card,.blood-group-card,.compat-card,.review-card,.workflow-card,.conversation-row{
+  animation:cardReveal .42s ease both;
+}
+@keyframes cardReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.donor-card:hover,.blood-group-card:hover,.compat-card:hover,.review-card:hover,.workflow-card:hover{
+  transform:translateY(-3px);box-shadow:0 14px 28px rgba(24,35,52,.10);
+}
+.star-pick:hover{transform:scale(1.16)}
+.tab{transition:color .2s,border-color .2s,background .2s}
+.modal-backdrop{animation:fadeIn .18s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media(max-width:640px){
+  .dashboard-stats .stat-card{min-height:140px;padding:14px}
+  .dashboard-stats .stat-card b{font-size:27px}
+  .panel,.auth-card,.profile-card{border-width:1.5px}
+}
+@media(prefers-reduced-motion:reduce){
+  .container,.stat-card,.donor-card,.blood-group-card,.compat-card,.review-card,.workflow-card,.conversation-row{animation:none!important}
+}
+
+
+
+/* Public donor cards: community-visible ratings and 90-day eligibility guide */
+.donor-card-public {
+  border: 1.5px solid #d7e3f2;
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 8px 24px rgba(20, 44, 80, .07);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+.donor-card-public:hover {
+  transform: translateY(-4px);
+  border-color: #e11d48;
+  box-shadow: 0 14px 30px rgba(20, 44, 80, .12);
+}
+.donor-card-public .donor-card-title { min-width: 0; }
+.donor-card-public .donor-card-title h3 { margin: 0 0 6px; }
+.public-donor-rating {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 13px 0;
+  padding: 9px 11px;
+  border: 1px solid #f5b7c4;
+  border-radius: 12px;
+  background: #fff5f7;
+}
+.public-donor-rating .rating-stars { font-size: 19px; letter-spacing: 1px; line-height: 1; }
+.public-donor-rating .stars-base { color: #d7dce5; }
+.public-donor-rating .stars-value { color: #e11d48; }
+.public-donor-rating .rating-caption { color: #7f1d3b; font-weight: 650; }
+.donor-eligibility {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 11px 12px;
+  border: 1px solid;
+  border-radius: 12px;
+}
+.donor-eligibility strong { font-size: .94rem; }
+.donor-eligibility small { line-height: 1.45; }
+.donor-eligibility.eligibility-ready {
+  color: #166534;
+  border-color: #86d6a2;
+  background: #effcf3;
+}
+.donor-eligibility.eligibility-wait {
+  color: #92400e;
+  border-color: #f4c77b;
+  background: #fff8e9;
+}
+.donor-card-public button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+  filter: grayscale(.2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .donor-card-public { transition: none; }
+  .donor-card-public:hover { transform: none; }
+}
