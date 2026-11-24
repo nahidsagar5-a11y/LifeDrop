@@ -792,168 +792,74 @@ async function dashboard() {
 
 async function searchBlood() {
   return `
-    <div class="panel">
+    <section class="search-hero">
+      <div class="search-hero-copy">
+        <span class="search-kicker">🩸 FIND A LIFESAVER</span>
+        <h2>Find the right blood donor</h2>
+        <p>Search trusted community donors by blood group and location. A small connection can make a big difference.</p>
+      </div>
+      <div class="search-hero-icon" aria-hidden="true">❤</div>
+    </section>
 
-      <h2>Search Blood Donors</h2>
-
-      <p class="muted">
-        Select required blood group. Location is optional.
-      </p>
-
-      <form id="blood-search-form" class="form-grid">
-
-        <label>
-          Required Blood Group
-
-          <select name="blood_group" required>
-            ${groupOptions()}
-          </select>
-        </label>
-
-        <label>
-          Location (Optional)
-
-          <input
-            name="location"
-            type="text"
-            placeholder="Enter area or city">
-        </label>
-
-        <div class="wide">
-
-          <button
-            type="submit"
-            class="btn primary">
-            Search Donors
-          </button>
-
-        </div>
-
+    <section class="panel search-panel">
+      <div class="search-panel-heading">
+        <div><span class="section-tag">DONOR SEARCH</span><h2>What blood do you need?</h2></div>
+        <span class="search-step">01 <i>/ 02</i></span>
+      </div>
+      <p class="muted">Choose the required blood group. Add a location to narrow your results.</p>
+      <form id="blood-search-form" class="form-grid search-form">
+        <label><span>🩸 Required blood group</span><select name="blood_group" required>${groupOptions()}</select></label>
+        <label><span>📍 Location <small>(optional)</small></span><input name="location" type="text" placeholder="e.g. Dhanmondi, Dhaka"></label>
+        <div class="wide"><button type="submit" class="btn primary search-submit">🔎 Search available donors</button></div>
       </form>
-
-    </div>
-
+      <div class="search-assurance"><span>✓</span> Donor contact requests are sent privately through BloodDrop.</div>
+    </section>
     <div id="donor-search-results"></div>
   `;
 }
 
 /* -------------------- RUN DONOR SEARCH -------------------- */
-
 async function runDonorSearch(bloodGroup, location = '') {
   const results = $('donor-search-results');
-
   if (!results) return;
 
-  results.innerHTML = `
-    <div class="panel">
-      Searching compatible donors...
-    </div>
-  `;
+  results.innerHTML = `<div class="panel search-loading"><span class="loading-pulse">🩸</span><strong>Finding compatible donors…</strong><p class="muted">Please wait while we check the donor list.</p></div>`;
 
   try {
-    const { data, error } = await db.rpc(
-      'search_lifedrop_donors',
-      {
-        p_blood_group: bloodGroup,
-        p_location: location.trim() || null
-      }
-    );
-
+    const { data, error } = await db.rpc('search_lifedrop_donors', {
+      p_blood_group: bloodGroup,
+      p_location: location.trim() || null
+    });
     if (error) throw error;
 
     if (!data?.length) {
-      results.innerHTML = `
-        <div class="panel empty">
-          No eligible matching donors found.
-          Try another location or blood group.
-        </div>
-      `;
+      results.innerHTML = `<div class="panel empty search-empty"><div class="empty-heart">♡</div><h3>No matching donors found</h3><p class="muted">Try another blood group or a nearby location. New donors may join the community soon.</p></div>`;
       return;
     }
 
-    const { data: ratingRows, error: ratingError } = await db.rpc('get_lifedrop_donor_ratings');
-    if (ratingError) throw ratingError;
-    const ratings = new Map((ratingRows || []).map(x => [x.donor_id, x]));
-
     results.innerHTML = `
-      <div class="panel">
-
-        <h2>Matching Donors</h2>
-
-        <p class="muted">
-          ${data.length} compatible donor(s) found.
-        </p>
-
-        <div class="table-wrap">
-          <table>
-
-            <thead>
-              <tr>
-                <th>Donor Name</th>
-                <th>Address / Location</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-
-              ${data.map(donor => `
-                <tr>
-
-                  <td>
-                    <strong>${esc(donor.donor_name)}</strong>
-                    <div class="donor-rating-inline" data-donor-rating="${esc(donor.donor_id)}"></div>
-                  </td>
-
-                  <td>
-                    ${esc(donor.donor_location || 'Not provided')}
-                  </td>
-
-                  <td>
-
-                    <button
-                      type="button"
-                      class="btn primary"
-                      data-send-request="${esc(donor.donor_id)}"
-                      data-blood-group="${esc(bloodGroup)}"
-                      data-donor-name="${esc(donor.donor_name)}"
-                      data-donor-location="${esc(donor.donor_location || '')}">
-                      Send Request
-                    </button>
-
-                  </td>
-
-                </tr>
-              `).join('')}
-
-            </tbody>
-          </table>
+      <section class="search-results-section">
+        <div class="results-heading"><div><span class="section-tag">YOUR MATCHES</span><h2>Matching donors</h2><p class="muted">People who match your blood group request.</p></div><span class="results-count">${data.length} ${data.length === 1 ? 'donor' : 'donors'} found</span></div>
+        <div class="donor-search-grid">
+          ${data.map((donor, index) => `
+            <article class="donor-search-card donor-search-tone-${index % 4}">
+              <div class="donor-search-top"><div class="donor-avatar">${esc((donor.donor_name || 'D').trim().charAt(0).toUpperCase())}</div><span class="match-chip">✓ Compatible match</span></div>
+              <h3>${esc(donor.donor_name || 'BloodDrop Donor')}</h3>
+              <div class="donor-search-location"><span>📍</span>${esc(donor.donor_location || 'Location not provided')}</div>
+              <div class="donor-search-divider"></div>
+              <div class="donor-search-bottom"><span class="private-note">🔒 Contact privately</span>
+                <button type="button" class="btn primary donor-request-btn" data-send-request="${esc(donor.donor_id)}" data-blood-group="${esc(bloodGroup)}" data-donor-name="${esc(donor.donor_name || '')}" data-donor-location="${esc(donor.donor_location || '')}">Send request <span aria-hidden="true">→</span></button>
+              </div>
+            </article>
+          `).join('')}
         </div>
-
-      </div>
-    `;
-
-    results.querySelectorAll('[data-donor-rating]').forEach(el => {
-      const r = ratings.get(el.dataset.donorRating);
-      const avg = Number(r?.average_rating || 0), count = Number(r?.review_count || 0);
-      const pct = Math.max(0, Math.min(100, avg / 5 * 100));
-      el.innerHTML = `<span class="rating-stars"><span class="stars-base">★★★★★</span><span class="stars-value" style="width:${pct}%">★★★★★</span></span><small class="rating-caption">${avg.toFixed(1)}/5 · ${count} review${count===1?'':'s'}</small>`;
-    });
+      </section>`;
     bindPage();
-
   } catch (error) {
     console.error('Donor search error:', error);
-
-    results.innerHTML = `
-      <div class="panel">
-        <h3>Unable to search donors</h3>
-        <p>${esc(error.message)}</p>
-      </div>
-    `;
+    results.innerHTML = `<div class="panel search-error"><h3>Unable to search donors</h3><p>${esc(error.message)}</p></div>`;
   }
 }
-
-/* -------------------- SEND REQUEST -------------------- */
 
 async function sendDonorRequest(
   donorId,
